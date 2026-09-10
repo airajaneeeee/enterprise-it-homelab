@@ -36,34 +36,94 @@ In Progress
 
 ## Completed Work
 
-### Workstation Identity and Local Account Administration
+### Workstation Configuration and Access Control
 
-- Standardized the Windows 11 workstation hostname as `NS-W11-01`.
-- Created a dedicated local administrator account (`labadmin`) for IT administrative tasks.
-- Created a standard Finance employee account (`finance.user`) for day-to-day user activity.
-- Configured local group membership to separate administrative and standard-user privileges.
-- Applied the principle of least privilege by keeping the Finance employee account out of the local Administrators group.
+- Standardized the Windows 11 workstation as `NS-W11-01` using the Northstar Solutions device naming convention.
+- Created dedicated local administrator (`labadmin`) and standard Finance user (`finance.user`) accounts.
+- Configured local group membership and applied the principle of least privilege.
 - Tested User Account Control (UAC) and administrative elevation using authorized administrator credentials.
-- Verified user identity and local group membership using Windows administrative tools and command-line utilities.
-- Investigated an access-denied scenario caused by insufficient privileges and validated the appropriate elevation process.
-
-### Tools and Commands Used
-
-- Computer Management
-- Local Users and Groups
-- Command Prompt
-- User Account Control (UAC)
-- `hostname`
-- `whoami`
-- `net user`
-- `net localgroup administrators`
+- Verified workstation identity, user context, and administrator membership using Windows administrative tools and command-line utilities.
 
 ### Device and Driver Administration
 
-- Inspected Windows hardware and virtual devices using Device Manager.
-- Reviewed network adapter driver information, including driver provider, version, date, and digital signer.
-- Identified an unknown `Base System Device` reporting Device Manager Code 28.
-- Investigated PCI hardware and compatible IDs to identify the affected VMware virtual device.
-- Determined that VMware guest components were missing and installed VMware Tools to provide the required device support.
+- Inspected physical and virtual devices using Windows Device Manager.
+- Reviewed device status and driver information, including provider, version, date, and digital signer.
+- Discovered an unidentified `Base System Device` reporting Device Manager Code 28.
+- Investigated PCI Hardware IDs to identify the affected VMware virtual device.
+- Determined that VMware Tools was missing and installed the required VMware guest components.
 - Restarted the workstation and verified that the unidentified device and Code 28 warning were resolved.
-- Documented the investigation, root cause, remediation, and post-resolution validation.
+
+### Performance and Process Troubleshooting
+
+- Established a workstation performance baseline using Task Manager.
+- Analyzed CPU, memory, disk, and network utilization through the Processes and Performance views.
+- Investigated sustained high CPU utilization by sorting processes and examining Microsoft Edge child processes and PIDs.
+- Tested a low-impact remediation by closing high-resource browser tabs before escalating to closing the application.
+- Verified CPU utilization decreased from approximately 47–50% to approximately 11% after removing the active browser workload.
+- Reviewed startup applications and considered application purpose and business requirements before making configuration changes.
+
+## Troubleshooting Cases
+
+### INC-001 — Administrative Access and Least Privilege
+
+Investigated a standard Finance user's inability to perform an administrative operation and verified that the restriction resulted from intentional standard-user permissions. Used authorized administrator elevation rather than granting permanent administrative access.
+
+### INC-002 — Missing VMware Device Driver
+
+Investigated an unidentified device reporting Code 28, used Hardware IDs to identify the VMware virtual hardware, determined that VMware Tools was missing, installed the required guest components, and verified successful device recognition after restart.
+
+### INC-003 — High CPU Utilization
+
+Investigated workstation performance degradation using Task Manager, isolated significant CPU utilization to active Microsoft Edge workloads, tested corrective actions, and verified a substantial reduction in CPU utilization after remediation.
+
+## Tools and Technologies Used
+
+- Windows 11 Pro
+- VMware Workstation
+- Windows Settings
+- Computer Management
+- Local Users and Groups
+- User Account Control (UAC)
+- Device Manager
+- Task Manager
+- VMware Tools
+- Command Prompt
+
+## Commands Used
+
+```cmd
+hostname
+whoami
+net user
+net localgroup administrators
+devmgmt.msc
+taskmgr
+```
+
+## Current Status
+
+**In Progress**
+
+Completed so far:
+
+- Workstation identity and baseline configuration
+- Local user and administrator management
+- Least-privilege configuration
+- UAC and administrative elevation
+- Device and driver assessment
+- Unknown-device and Code 28 troubleshooting
+- VMware Tools installation and verification
+- Task Manager resource analysis
+- Process and PID investigation
+- Startup application review
+- Performance troubleshooting
+
+Next:
+
+- Windows Services and system utilities
+- Local Group Policy
+- Network troubleshooting
+- Windows system repair
+- Storage administration
+- Windows Update
+- Endpoint security and hardening
