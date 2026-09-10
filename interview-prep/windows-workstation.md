@@ -531,3 +531,91 @@ No.
 I would first clarify the symptoms and determine whether the problem involves general connectivity, DNS resolution, DHCP configuration, the network adapter, gateway, VPN, firewall, proxy, or a specific application.
 
 For example, if the workstation has valid IP configuration but hostnames fail to resolve, I would investigate DNS. If the workstation does not have valid DHCP-assigned configuration, I would investigate DHCP and may use release/renew when appropriate.
+
+---
+
+# 7. Disk Management and File Systems
+
+## 1. What is Disk Management used for?
+
+Disk Management is a Windows administrative utility used to manage disks and volumes. I can use it to initialize disks, create and format volumes, assign drive letters, inspect storage status, and perform operations such as extending or shrinking supported volumes.
+
+## 2. What would you do after installing a new disk that Windows detects but cannot yet use for file storage?
+
+I would first verify that Windows detects the correct disk and confirm that it does not contain required data.
+
+For a new blank disk, I can initialize it using an appropriate partition style such as GPT, create a volume, format it with the required file system, assign a drive letter if necessary, and then verify that Windows can access and write to the volume.
+
+I practiced this in my Windows homelab by provisioning a secondary virtual disk and configuring it as the `Finance-Data` NTFS volume.
+
+## 3. What is the difference between GPT and MBR?
+
+GPT is the modern partitioning standard and supports larger disks and more partitions. MBR is an older standard that may still be encountered with legacy systems.
+
+For modern Windows deployments, I would generally expect GPT unless there is a specific compatibility requirement.
+
+## 4. What is the difference between NTFS and exFAT?
+
+NTFS is generally preferred for internal Windows storage because it supports Windows permissions, journaling, and other Windows filesystem features.
+
+exFAT is commonly useful for removable storage when compatibility between different operating systems is important.
+
+The correct choice depends on the storage use case.
+
+## 5. Why did you use NTFS for your Finance data volume?
+
+The volume represented internal storage on a Windows enterprise workstation. NTFS was appropriate because it integrates with Windows security and supports file and folder permissions that would be important for business data.
+
+## 6. How would you safely approach an unfamiliar disk in Disk Management?
+
+I would verify the disk identity, size, existing partitions, and whether it contains important data before making changes.
+
+I would not initialize, format, delete, or repartition an unfamiliar disk until I understood its purpose because those operations can result in data loss.
+
+---
+
+# 8. Windows Endpoint Security
+
+## 1. How would you verify that Microsoft Defender is operating?
+
+I can review Windows Security and use `Get-MpComputerStatus` in PowerShell to verify antivirus, real-time protection, behavior monitoring, security intelligence, and scan information.
+
+## 2. What is the difference between Domain, Private, and Public firewall profiles?
+
+The Domain profile applies when a device is connected to and authenticated against its organization's domain.
+
+Private is intended for trusted networks, while Public is intended for untrusted networks and normally uses more restrictive behavior.
+
+## 3. What is the difference between inbound and outbound firewall rules?
+
+Inbound rules control network traffic attempting to reach the computer.
+
+Outbound rules control traffic originating from the computer.
+
+Rules can be configured based on factors such as applications, protocols, ports, addresses, and network profiles.
+
+## 4. Would you disable Windows Firewall to troubleshoot connectivity?
+
+I would avoid disabling the entire firewall as an initial troubleshooting step.
+
+I would first determine which application, protocol, port, network profile, or firewall rule might be involved and make the smallest controlled change necessary.
+
+## 5. What is BitLocker?
+
+BitLocker is Microsoft's full-volume encryption technology. It protects data at rest and helps prevent unauthorized offline access if a device or storage drive is lost or stolen.
+
+## 6. What should be considered before deploying BitLocker?
+
+I would consider hardware or TPM support, organizational encryption requirements, recovery-key storage and recovery procedures, and how encryption will be centrally managed.
+
+## 7. How do Defender, Firewall, BitLocker, and UAC differ?
+
+Microsoft Defender provides malware and endpoint threat protection.
+
+Windows Firewall controls network traffic.
+
+BitLocker protects stored data through encryption.
+
+UAC helps control administrative elevation and supports least-privilege operation.
+
+They provide different layers of endpoint security.

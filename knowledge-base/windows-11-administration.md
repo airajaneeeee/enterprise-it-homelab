@@ -853,3 +853,127 @@ Therefore:
 `nslookup` can be used to investigate DNS name resolution.
 
 Understanding which network function is failing is more important than simply running a collection of troubleshooting commands.
+
+## Disk Management and Windows File Systems
+
+### Disk Management
+
+Disk Management (`diskmgmt.msc`) is a Windows administrative utility used to manage disks, partitions, volumes, drive letters, and file systems.
+
+Common administrative tasks include:
+
+- Initializing newly installed disks
+- Creating and deleting volumes
+- Formatting volumes
+- Assigning or changing drive letters
+- Viewing disk and volume status
+- Extending or shrinking supported volumes
+- Identifying unallocated storage
+
+### Hands-On Storage Provisioning
+
+On the `NS-W11-01` workstation, I provisioned an additional virtual disk for Finance department data.
+
+Using Disk Management, I:
+
+- Detected the newly provisioned virtual disk
+- Initialized the disk
+- Created a new simple volume
+- Formatted the volume using NTFS
+- Assigned drive letter `F:`
+- Labeled the volume `Finance-Data`
+- Verified the volume reported a Healthy status
+- Confirmed read/write access through File Explorer
+
+The resulting volume was approximately 10 GB and was available as:
+
+`Finance-Data (F:)`
+
+### GPT vs MBR
+
+GPT (GUID Partition Table) is the modern partitioning standard used by current Windows systems. It supports larger disks and more partitions than the older MBR format.
+
+MBR (Master Boot Record) is an older partitioning format that remains relevant mainly for legacy compatibility.
+
+### Common Windows File Systems
+
+**NTFS**
+- Standard file system for modern Windows system and data volumes
+- Supports Windows file and folder permissions
+- Supports journaling and other Windows storage features
+- Appropriate for internal enterprise Windows storage
+
+**exFAT**
+- Commonly used for removable and portable storage
+- Provides broad compatibility across operating systems
+- Does not provide the same Windows security capabilities as NTFS
+
+**ReFS**
+- Resilient File System
+- Designed for data integrity, resiliency, and certain large-scale storage workloads
+- More commonly encountered in Windows Server and specialized storage environments
+
+For the Northstar Finance workstation data volume, NTFS was selected because it is appropriate for an internal Windows business data volume and supports Windows security and permission features.
+
+## Windows Endpoint Security
+
+### Microsoft Defender Antivirus
+
+Microsoft Defender provides built-in endpoint protection against malware and other threats.
+
+Protection status can be reviewed through Windows Security or PowerShell:
+
+`Get-MpComputerStatus`
+
+Important indicators include:
+
+- Antivirus protection status
+- Real-time protection
+- Behavior monitoring
+- Security intelligence updates
+- Scan status
+
+A Quick Scan checks common locations where threats are likely to be found.
+
+### Windows Defender Firewall
+
+Windows Defender Firewall controls network traffic using inbound and outbound rules.
+
+Windows uses three firewall profiles:
+
+- Domain — networks authenticated against an organization's domain
+- Private — trusted networks
+- Public — untrusted networks
+
+Useful administrative tools include:
+
+`Get-NetFirewallProfile`
+
+`Get-NetConnectionProfile`
+
+`wf.msc`
+
+Firewall troubleshooting should focus on the affected application, protocol, port, rule, and network profile rather than immediately disabling the entire firewall.
+
+### BitLocker
+
+BitLocker provides full-volume encryption to protect data at rest.
+
+BitLocker status can be checked with:
+
+`manage-bde -status`
+
+During the Northstar workstation security assessment, `NS-W11-01` was found to have BitLocker protection disabled.
+
+Encryption at rest was therefore identified as a future endpoint-hardening control pending evaluation of virtual TPM configuration and recovery-key management.
+
+### Security Control Layers
+
+These technologies address different risks:
+
+- Microsoft Defender — malware and endpoint threat protection
+- Windows Firewall — network traffic control
+- BitLocker — data-at-rest protection
+- UAC and least privilege — administrative privilege control
+
+Enterprise endpoint security relies on multiple complementary controls rather than a single security feature.
