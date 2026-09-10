@@ -83,3 +83,31 @@ net localgroup administrators
 `finance.user` was configured as a standard user and was not added to the local `Administrators` group.
 
 This configuration supports the principle of least privilege by separating normal employee activity from administrative operations.
+
+## Storage Configuration
+
+| Volume | Purpose | File System | Capacity | Status |
+|---|---|---|---|---|
+| `C:` | Windows operating system | NTFS | 952.60 GB | Healthy |
+| `Finance-Data (F:)` | Simulated Finance department data | NTFS | ~10 GB | Healthy |
+
+A secondary virtual disk was provisioned and configured using Windows Disk Management. The disk was initialized, formatted using NTFS, assigned drive letter `F:`, and labeled `Finance-Data`.
+
+Read/write access to the new volume was verified through Windows File Explorer.
+
+## Endpoint Security Baseline
+
+| Control | Assessment |
+|---|---|
+| Microsoft Defender Antivirus | Reviewed |
+| Real-Time Protection | Reviewed |
+| Windows Defender Firewall | Reviewed |
+| User Account Control | Tested |
+| Least-Privilege User Configuration | Implemented |
+| BitLocker | Protection Off |
+
+BitLocker status was assessed using:
+
+`manage-bde -status`
+
+The workstation was found to have BitLocker protection disabled. Encryption at rest has been identified as a future endpoint-hardening consideration pending evaluation of virtual TPM and recovery-key configuration.

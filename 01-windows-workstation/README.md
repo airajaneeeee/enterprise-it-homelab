@@ -62,6 +62,57 @@ In Progress
 - Verified CPU utilization decreased from approximately 47–50% to approximately 11% after removing the active browser workload.
 - Reviewed startup applications and considered application purpose and business requirements before making configuration changes.
 
+### Windows Services Administration
+
+- Inspected and administered Windows services using Services (`services.msc`).
+- Reviewed service status, startup type, executable path, and dependencies.
+- Practiced stopping and restarting the Print Spooler service.
+- Verified service state using both Command Prompt and PowerShell.
+- Used `sc query` and `Get-Service` to validate service status before and after configuration changes.
+
+### Local Group Policy
+
+- Reviewed Local Group Policy using `gpedit.msc`.
+- Configured a workstation security policy preventing Remote Desktop Connection passwords from being saved.
+- Applied policy changes using `gpupdate /force`.
+- Reviewed Group Policy diagnostic tools including `gpresult` and Resultant Set of Policy (`rsop.msc`).
+- Practiced interpreting policy states such as Not Configured, Enabled, and Disabled.
+
+### Network Configuration and Troubleshooting
+
+- Inspected detailed TCP/IP configuration using `ipconfig /all`.
+- Identified the workstation IPv4 address, subnet mask, default gateway, DHCP server, and DNS server.
+- Practiced DNS troubleshooting using `nslookup` and Windows DNS cache commands.
+- Reviewed DHCP lease troubleshooting using `ipconfig /release` and `ipconfig /renew`.
+- Distinguished DNS name-resolution problems from general network-connectivity problems.
+
+### Windows System Integrity and Maintenance
+
+- Reviewed Windows image health and system-file integrity using DISM and System File Checker.
+- Practiced Windows image assessment using `DISM /Online /Cleanup-Image`.
+- Reviewed the use of `sfc /scannow` for validating protected Windows system files.
+- Reviewed Windows storage-management and cleanup tools.
+- Examined Windows Update configuration, update history, advanced options, and the distinction between quality and feature updates.
+
+### Storage Administration
+
+- Provisioned additional virtual storage for the Finance workstation.
+- Initialized and configured a secondary disk using Windows Disk Management.
+- Created and formatted an NTFS data volume.
+- Assigned drive letter `F:` and volume label `Finance-Data`.
+- Verified the volume reported a Healthy status and confirmed read/write access through File Explorer.
+- Reviewed GPT and MBR partitioning concepts and NTFS, exFAT, and ReFS file-system use cases.
+
+### Endpoint Security Assessment
+
+- Reviewed Microsoft Defender Antivirus and Windows Security configuration.
+- Used PowerShell to inspect Microsoft Defender protection status.
+- Reviewed Windows Defender Firewall profiles, inbound and outbound rules, and advanced firewall management.
+- Used PowerShell to inspect firewall and network-profile configuration.
+- Assessed BitLocker encryption status using `manage-bde -status`.
+- Identified that BitLocker protection is currently disabled and recorded encryption at rest as a future endpoint-hardening consideration.
+- Reviewed User Account Control and least-privilege administrative practices.
+
 ## Troubleshooting Cases
 
 ### INC-001 — Administrative Access and Least Privilege
@@ -80,16 +131,28 @@ Investigated workstation performance degradation using Task Manager, isolated si
 
 - Windows 11 Pro
 - VMware Workstation
+- VMware Tools
 - Windows Settings
 - Computer Management
 - Local Users and Groups
 - User Account Control (UAC)
 - Device Manager
 - Task Manager
-- VMware Tools
+- Windows Services
+- Local Group Policy Editor
+- Resultant Set of Policy
 - Command Prompt
+- PowerShell
+- Disk Management
+- Microsoft Defender Antivirus
+- Windows Defender Firewall
+- Windows Security
+- DISM
+- System File Checker
 
 ## Commands Used
+
+### Command Prompt
 
 ```cmd
 hostname
@@ -98,32 +161,54 @@ net user
 net localgroup administrators
 devmgmt.msc
 taskmgr
+services.msc
+sc query spooler
+gpedit.msc
+gpupdate /force
+gpresult /r
+rsop.msc
+ipconfig /all
+ipconfig /displaydns
+ipconfig /flushdns
+ipconfig /release
+ipconfig /renew
+nslookup
+DISM /Online /Cleanup-Image /CheckHealth
+DISM /Online /Cleanup-Image /ScanHealth
+sfc /scannow
+diskmgmt.msc
+manage-bde -status
+
+### PowerShell
+
+```powershell
+Get-Service Spooler
+Get-MpComputerStatus
+Get-NetFirewallProfile
+Get-NetConnectionProfile
 ```
 
 ## Current Status
 
-**In Progress**
+**Windows 11 Workstation Module — Completed (so far!)**
 
-Completed so far:
+Completed areas:
 
 - Workstation identity and baseline configuration
-- Local user and administrator management
-- Least-privilege configuration
-- UAC and administrative elevation
-- Device and driver assessment
-- Unknown-device and Code 28 troubleshooting
-- VMware Tools installation and verification
-- Task Manager resource analysis
-- Process and PID investigation
-- Startup application review
-- Performance troubleshooting
+- Local account and administrator management
+- Least-privilege access control and UAC
+- Device and driver administration
+- Device Manager troubleshooting and VMware Tools remediation
+- Task Manager and performance troubleshooting
+- Windows Services administration
+- Local Group Policy configuration
+- DNS and DHCP troubleshooting fundamentals
+- Windows system-integrity assessment
+- Storage provisioning and NTFS volume administration
+- Windows maintenance and update concepts
+- Microsoft Defender assessment
+- Windows Firewall administration
+- BitLocker status assessment
+- Technical documentation and troubleshooting case development
 
-Next:
-
-- Windows Services and system utilities
-- Local Group Policy
-- Network troubleshooting
-- Windows system repair
-- Storage administration
-- Windows Update
-- Endpoint security and hardening
+The workstation will continue to be used in later lab modules for domain integration, centralized policy management, networking, security hardening, and enterprise administration.

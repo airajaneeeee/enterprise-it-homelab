@@ -12,7 +12,7 @@ The lab is being built progressively, with configuration steps, troubleshooting 
 
 | System | Role | Status |
 |---|---|---|
-| NS-W11-01 | Windows 11 Pro Workstation | In Progress |
+| NS-W11-01 | Windows 11 Pro Finance Workstation | Workstation Baseline Complete (so far!) |
 
 ## Planned Lab Components
 
@@ -29,8 +29,33 @@ The lab is being built progressively, with configuration steps, troubleshooting 
 - Security hardening
 - IT service desk troubleshooting
 
-## Current Project
+## Completed Module
 
-### Windows 11 Enterprise Workstation
+### Windows 11 Enterprise Workstation Administration
 
-Deploying and administering a Windows 11 Pro workstation for a simulated Finance department user.
+Built and administered a Windows 11 Pro workstation for a simulated Finance department environment.
+
+Hands-on work included:
+
+- Workstation identity and standardized naming
+- Local administrator and standard-user configuration
+- Least-privilege access control and UAC
+- Device and driver troubleshooting
+- VMware Tools deployment and verification
+- Performance and process troubleshooting
+- Windows Services administration
+- Local Group Policy configuration
+- DNS and DHCP troubleshooting fundamentals
+- Windows system-integrity assessment
+- Disk and NTFS volume administration
+- Windows Update and maintenance concepts
+- Microsoft Defender and Firewall assessment
+- BitLocker security assessment
+
+Three documented troubleshooting cases were completed involving administrative permissions, a missing VMware device driver, and high CPU utilization.
+
+## Current Project Status
+
+The Windows 11 workstation baseline is complete.
+
+The workstation will be integrated into later Northstar Solutions infrastructure modules involving Windows Server, Active Directory, DNS, DHCP, Group Policy, networking, automation, and security.
