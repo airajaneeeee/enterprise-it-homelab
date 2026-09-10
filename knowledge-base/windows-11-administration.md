@@ -705,3 +705,77 @@ The investigation did not provide sufficient evidence to conclude that Microsoft
 - Performance monitoring
 - Startup apps
 - Details and Process IDs (PIDs)
+
+## Windows Services
+
+Windows services are background components that provide operating system and application functionality without requiring direct user interaction.
+
+Services can be managed through the Services console:
+
+`services.msc`
+
+Common startup types include:
+
+- **Automatic** — starts automatically with Windows.
+- **Automatic (Delayed Start)** — starts automatically after the initial boot process.
+- **Manual** — can be started when required by Windows, an application, or an administrator.
+- **Disabled** — cannot start until its configuration is changed.
+
+The startup type and current service status are different concepts. For example, a service configured as `Automatic` can currently be `Stopped`.
+
+### Print Spooler Lab
+
+I inspected and administered the Windows Print Spooler (`Spooler`) service.
+
+The service was configured as:
+
+- Startup type: `Automatic`
+- Initial status: `Running`
+- Executable: `C:\Windows\System32\spoolsv.exe`
+
+I stopped and started the service and verified both states using Command Prompt and PowerShell.
+
+Commands used:
+
+`sc query spooler`
+
+`Get-Service Spooler`
+
+Before changing a service, its purpose, dependencies, and potential business impact should be understood.
+
+## Local Group Policy
+
+Local Group Policy allows administrators to configure and enforce Windows settings on an individual computer.
+
+The Local Group Policy Editor can be opened with:
+
+`gpedit.msc`
+
+Two major policy areas are:
+
+- **Computer Configuration** — policies primarily affecting the computer.
+- **User Configuration** — policies primarily affecting users.
+
+Policy settings commonly have three states:
+
+- **Not Configured**
+- **Enabled**
+- **Disabled**
+
+The meaning depends on the wording of the policy. For example, enabling `Do not allow passwords to be saved` enforces the restriction against saving Remote Desktop credentials.
+
+### RDP Credential Security Lab
+
+On `NS-W11-01`, I configured:
+
+`Computer Configuration → Administrative Templates → Windows Components → Remote Desktop Services → Remote Desktop Connection Client → Do not allow passwords to be saved`
+
+The policy was set to `Enabled`.
+
+I also practiced using:
+
+- `gpupdate /force` — refresh Group Policy processing
+- `gpresult /r` — display Group Policy result information
+- `rsop.msc` — inspect Resultant Set of Policy information
+
+This provided hands-on experience configuring and investigating local Windows policy.

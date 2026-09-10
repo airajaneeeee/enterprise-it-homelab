@@ -417,3 +417,51 @@ This supported the conclusion that the active browser workload accounted for mos
 I also considered the VM's allocation of only two virtual processors when interpreting the performance data.
 
 The experience reinforced the importance of measuring performance, testing a hypothesis, using the least disruptive corrective action, and verifying the result before closing an issue.
+
+---
+
+# 4. Windows Services
+
+## 1. What is a Windows service?
+
+A Windows service is a background component that provides operating system or application functionality without requiring direct user interaction.
+
+Services can be managed through tools such as `services.msc`, PowerShell, and command-line utilities.
+
+## 2. What is the difference between service status and startup type?
+
+Service status describes the service's current state, such as Running or Stopped.
+
+Startup type controls how the service is configured to start, such as Automatic, Manual, or Disabled.
+
+For example, during my lab the Print Spooler was configured as Automatic, but I was able to stop it temporarily. Its startup configuration remained Automatic while its current status became Stopped.
+
+## 3. How would you troubleshoot a Windows service?
+
+I would first confirm the user's symptoms and determine whether the service is related to the problem.
+
+I would check the service status, startup configuration, and dependencies before making changes. If appropriate, I could start or restart the service and then verify whether the original problem was resolved.
+
+In my Windows 11 homelab, I practiced this with the Print Spooler and verified its stopped and running states using both `sc query spooler` and `Get-Service Spooler`.
+
+---
+
+# 5. Local Group Policy
+
+## 1. What is Group Policy?
+
+Group Policy is a Windows administration technology used to configure and enforce settings for computers and users.
+
+I practiced with Local Group Policy on a Windows 11 workstation. Later, in an Active Directory environment, Group Policy can be centrally managed and applied across domain users and computers.
+
+## 2. What is the difference between Computer Configuration and User Configuration?
+
+Computer Configuration contains policies primarily applied to computers, while User Configuration contains policies primarily applied to users.
+
+The appropriate area depends on whether the setting should follow the computer or the user.
+
+## 3. What Group Policy tools have you used?
+
+I have used `gpedit.msc` to configure Local Group Policy, `gpupdate /force` to request policy processing, `gpresult /r` to inspect Group Policy results, and `rsop.msc` to examine Resultant Set of Policy information.
+
+In my homelab, I configured a security policy preventing Remote Desktop passwords from being saved.
