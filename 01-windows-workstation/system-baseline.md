@@ -57,3 +57,29 @@ NS-W11-01
 ```
 
 The Windows **Settings > System > About** page was also reviewed to confirm the workstation hostname, operating system edition, Windows version, OS build, installed memory, processor information, and system architecture.
+
+## Local User Configuration
+
+Two dedicated local accounts were configured for the workstation.
+
+| Account | Purpose | Access Level |
+|---|---|---|
+| `labadmin` | IT administration | Local Administrator |
+| `finance.user` | Simulated Finance employee | Standard User |
+
+### Administrative Account
+
+`labadmin` was added to the local `Administrators` group and is used for privileged IT administration tasks.
+
+Verification commands:
+
+```cmd
+whoami
+net localgroup administrators
+```
+
+### Standard Employee Account
+
+`finance.user` was configured as a standard user and was not added to the local `Administrators` group.
+
+This configuration supports the principle of least privilege by separating normal employee activity from administrative operations.

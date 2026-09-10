@@ -33,3 +33,27 @@ As the assigned junior IT support technician, I am responsible for preparing the
 ## Status
 
 In Progress
+
+## Completed Work
+
+### Workstation Identity and Local Account Administration
+
+- Standardized the Windows 11 workstation hostname as `NS-W11-01`.
+- Created a dedicated local administrator account (`labadmin`) for IT administrative tasks.
+- Created a standard Finance employee account (`finance.user`) for day-to-day user activity.
+- Configured local group membership to separate administrative and standard-user privileges.
+- Applied the principle of least privilege by keeping the Finance employee account out of the local Administrators group.
+- Tested User Account Control (UAC) and administrative elevation using authorized administrator credentials.
+- Verified user identity and local group membership using Windows administrative tools and command-line utilities.
+- Investigated an access-denied scenario caused by insufficient privileges and validated the appropriate elevation process.
+
+### Tools and Commands Used
+
+- Computer Management
+- Local Users and Groups
+- Command Prompt
+- User Account Control (UAC)
+- `hostname`
+- `whoami`
+- `net user`
+- `net localgroup administrators`
