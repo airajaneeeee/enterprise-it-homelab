@@ -465,3 +465,69 @@ The appropriate area depends on whether the setting should follow the computer o
 I have used `gpedit.msc` to configure Local Group Policy, `gpupdate /force` to request policy processing, `gpresult /r` to inspect Group Policy results, and `rsop.msc` to examine Resultant Set of Policy information.
 
 In my homelab, I configured a security policy preventing Remote Desktop passwords from being saved.
+
+---
+
+# 6. Basic Windows Network Troubleshooting
+
+## 1. What does DNS do?
+
+DNS translates hostnames and domain names into IP addresses that computers use for network communication.
+
+For example, instead of users needing to remember an IP address, DNS allows them to access a service using a name such as `microsoft.com`.
+
+## 2. How would you test whether DNS name resolution is working?
+
+I can use `nslookup` to query DNS for a hostname and determine whether it resolves to an IP address.
+
+For example:
+
+`nslookup microsoft.com`
+
+If DNS successfully returns an IP address, I have evidence that name resolution is functioning for that query.
+
+## 3. What does `ipconfig /flushdns` do?
+
+`ipconfig /flushdns` clears the Windows DNS resolver cache.
+
+It can be useful when troubleshooting stale or incorrect cached DNS information, such as when a DNS record has recently changed but a workstation may still be using an older cached result.
+
+I would not use it as a generic fix for every network problem.
+
+## 4. What is the difference between DHCP and DNS?
+
+DHCP provides network configuration to clients, such as IP addressing information.
+
+DNS translates names into IP addresses.
+
+They solve different problems, so I would identify whether an issue involves IP configuration, name resolution, or another network component before choosing a troubleshooting action.
+
+## 5. What do `ipconfig /release` and `ipconfig /renew` do?
+
+`ipconfig /release` releases the client's current DHCP-assigned IPv4 configuration.
+
+`ipconfig /renew` requests network configuration from the DHCP server again.
+
+These commands can be useful when troubleshooting DHCP-related configuration problems.
+
+## 6. What information would you check with `ipconfig /all`?
+
+I would look at information such as:
+
+- IPv4 address
+- Subnet mask
+- Default gateway
+- DHCP status
+- DHCP server
+- DNS servers
+- Network adapter information
+
+This helps establish the workstation's current network configuration before making changes.
+
+## 7. A user says "the internet isn't working." Would you immediately flush DNS or renew the IP address?
+
+No.
+
+I would first clarify the symptoms and determine whether the problem involves general connectivity, DNS resolution, DHCP configuration, the network adapter, gateway, VPN, firewall, proxy, or a specific application.
+
+For example, if the workstation has valid IP configuration but hostnames fail to resolve, I would investigate DNS. If the workstation does not have valid DHCP-assigned configuration, I would investigate DHCP and may use release/renew when appropriate.

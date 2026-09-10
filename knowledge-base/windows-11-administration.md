@@ -779,3 +779,77 @@ I also practiced using:
 - `rsop.msc` — inspect Resultant Set of Policy information
 
 This provided hands-on experience configuring and investigating local Windows policy.
+
+## Windows Network Troubleshooting Basics
+
+### DNS Name Resolution and DNS Cache
+
+DNS (Domain Name System) translates hostnames and domain names into IP addresses that computers use for network communication.
+
+Useful Windows DNS troubleshooting commands include:
+
+`nslookup <hostname>`
+
+Tests DNS name resolution and displays the IP address returned for a hostname.
+
+`ipconfig /displaydns`
+
+Displays records currently stored in the Windows DNS resolver cache.
+
+`ipconfig /flushdns`
+
+Clears the Windows DNS resolver cache.
+
+Flushing the DNS cache can be useful when a workstation contains stale or incorrect cached DNS information, such as after a server or website's DNS record has changed.
+
+It should not be treated as a generic solution for all network connectivity problems.
+
+### Network Configuration
+
+`ipconfig /all` displays detailed TCP/IP configuration, including:
+
+- IPv4 address
+- Subnet mask
+- Default gateway
+- DHCP status
+- DHCP server
+- DNS servers
+- DNS suffix
+- Network adapter information
+
+On the `NS-W11-01` VMware workstation, I used `ipconfig /all` to inspect the DHCP-assigned network configuration and identify the workstation's IPv4 address, default gateway, DHCP server, and DNS server.
+
+### DHCP Release and Renew
+
+DHCP (Dynamic Host Configuration Protocol) can automatically provide network configuration to client devices.
+
+Useful commands include:
+
+`ipconfig /release`
+
+Releases the current DHCP-assigned IPv4 configuration.
+
+`ipconfig /renew`
+
+Requests network configuration from the DHCP server again.
+
+A renewed DHCP lease may receive the same IP address as before. Renewal does not guarantee that the client will receive a different address.
+
+Release and renew can be useful when troubleshooting DHCP-related configuration problems but should not be used blindly for every connectivity issue.
+
+### DNS vs DHCP Troubleshooting
+
+DNS and DHCP perform different functions.
+
+- **DHCP** provides network configuration such as IP addressing information.
+- **DNS** resolves names into IP addresses.
+
+Therefore:
+
+`ipconfig /release` and `ipconfig /renew` relate primarily to DHCP configuration.
+
+`ipconfig /flushdns` relates to the local DNS resolver cache.
+
+`nslookup` can be used to investigate DNS name resolution.
+
+Understanding which network function is failing is more important than simply running a collection of troubleshooting commands.
