@@ -46,3 +46,47 @@ The primary hardware ID observed was:
 The `VEN_15AD` portion of the hardware ID identifies VMware as the PCI vendor.
 
 No driver changes were made during the initial assessment. The device will be identified and an appropriate corrective action determined before modifying the system.
+
+## Investigation
+
+The unidentified device reported Device Manager error **Code 28**, indicating that its driver was not installed.
+
+The device Hardware IDs and Compatible IDs were inspected to identify the virtual hardware.
+
+Primary Hardware ID:
+
+`PCI\VEN_15AD&DEV_0740&SUBSYS_074015AD&REV_10`
+
+Compatible ID:
+
+`PCI\VEN_15AD&DEV_0740&REV_10`
+
+The PCI vendor identifier `VEN_15AD` corresponds to VMware. Further investigation identified `DEV_0740` as a VMware VMCI (Virtual Machine Communication Interface) device.
+
+VMware Tools was also checked on the guest operating system and was not installed.
+
+## Preliminary Diagnosis
+
+The Base System Device warning is consistent with a missing VMware VMCI device driver in the Windows guest operating system.
+
+VMware Tools has not yet been installed, so remediation will include installing VMware Tools and verifying whether the VMCI device is correctly recognized afterward.
+
+## Remediation
+
+VMware Tools was installed in the Windows 11 guest operating system to provide the appropriate VMware guest drivers and integration components.
+
+The virtual machine was restarted after installation.
+
+## Post-Remediation Verification
+
+Device Manager was inspected after the restart.
+
+The previously unidentified `Base System Device` and its Code 28 warning were no longer present.
+
+The remediation successfully resolved the missing VMware virtual device driver condition.
+
+## Final Status
+
+**Resolved**
+
+The workstation no longer displays the previously observed Base System Device warning in Device Manager.

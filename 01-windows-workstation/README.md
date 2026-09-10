@@ -57,3 +57,13 @@ In Progress
 - `whoami`
 - `net user`
 - `net localgroup administrators`
+
+### Device and Driver Administration
+
+- Inspected Windows hardware and virtual devices using Device Manager.
+- Reviewed network adapter driver information, including driver provider, version, date, and digital signer.
+- Identified an unknown `Base System Device` reporting Device Manager Code 28.
+- Investigated PCI hardware and compatible IDs to identify the affected VMware virtual device.
+- Determined that VMware guest components were missing and installed VMware Tools to provide the required device support.
+- Restarted the workstation and verified that the unidentified device and Code 28 warning were resolved.
+- Documented the investigation, root cause, remediation, and post-resolution validation.
