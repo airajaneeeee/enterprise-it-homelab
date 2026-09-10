@@ -30,10 +30,6 @@ As the assigned junior IT support technician, I am responsible for preparing the
 - Understand User Account Control
 - Document troubleshooting and validation evidence
 
-## Status
-
-In Progress
-
 ## Completed Work
 
 ### Workstation Configuration and Access Control
@@ -178,6 +174,7 @@ DISM /Online /Cleanup-Image /ScanHealth
 sfc /scannow
 diskmgmt.msc
 manage-bde -status
+```
 
 ### PowerShell
 
@@ -190,7 +187,7 @@ Get-NetConnectionProfile
 
 ## Current Status
 
-**Windows 11 Workstation Module — Completed (so far!)**
+**Windows 11 Workstation Module — Completed**
 
 Completed areas:
 
