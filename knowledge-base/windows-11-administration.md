@@ -104,4 +104,4 @@ Do **not** manually rename the folder.
 
 Windows stores references to user profiles in multiple places. Manually changing the profile directory can lead to profile loading problems and broken paths.
 
-Instead, we will create a new lab administrator account with the intended username and let Windows create its user profile folder.
+Instead, a safer approach is to create and verify a correctly configured replacement account. We will create a new lab administrator account with the intended username and let Windows create its user profile folder.
