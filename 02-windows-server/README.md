@@ -7,13 +7,13 @@ Active Directory and DNS Deployment — Next
 
 ## Business Scenario
 
-Northstar Solutions is expanding from standalone workstation administration to centralized Windows infrastructure.
+Northstar Solutions is expanding its lab environment from standalone Windows workstation administration to centralized Windows infrastructure.
 
-A Windows Server 2025 system was deployed in VMware Workstation to provide the foundation for future enterprise services including Active Directory Domain Services, DNS, Group Policy, centralized identity management, and domain-based workstation administration.
+A Windows Server 2025 system was deployed in VMware Workstation to establish the foundation for Active Directory Domain Services, DNS, Group Policy, centralized identity management, and domain-based workstation administration.
 
 The server was configured and validated at the operating-system and network level before introducing domain services.
 
-## Server Overview
+## Environment
 
 | Item | Configuration |
 |---|---|
@@ -27,138 +27,74 @@ The server was configured and validated at the operating-system and network leve
 | IPv4 Address | `192.168.252.10` |
 | Planned Role | Domain Controller / DNS Server |
 
-## Objectives
+## Work Completed
 
-- Deploy Windows Server 2025 in a virtualized lab environment.
-- Establish a standardized server naming convention.
-- Examine the underlying VMware virtual network before assigning server addressing.
-- Configure predictable static IPv4 addressing for core infrastructure.
-- Validate local gateway and external IP connectivity.
-- Prepare DNS client configuration for the future Active Directory environment.
-- Establish a documented pre-domain baseline before installing infrastructure roles.
+### Windows Server Deployment
 
-## Completed Work
+- Created a dedicated Windows Server 2025 virtual machine in VMware Workstation.
+- Configured virtual CPU, memory, storage, and networking for the lab environment.
+- Renamed the server to `NS-DC01` using the Northstar Solutions naming convention.
+- Verified the new Windows hostname after restart.
 
-### 1. Windows Server Deployment
+### Network Assessment
 
-Created a dedicated Windows Server 2025 virtual machine in VMware Workstation.
+- Inspected the VMware VMnet8 NAT network before assigning server addressing.
+- Identified the `192.168.252.0/24` network.
+- Identified the VMware NAT gateway at `192.168.252.2`.
+- Identified the VMware DHCP allocation range of `192.168.252.128-192.168.252.254`.
+- Confirmed that the server initially received `192.168.252.129` through DHCP.
 
-The server was configured with resources appropriate for the available homelab environment and renamed:
+### Static IPv4 Configuration
 
-`NS-DC01`
-
-Naming convention:
-
-- `NS` — Northstar Solutions
-- `DC` — planned Domain Controller role
-- `01` — first server assigned to this role
-
-At this stage, the name identifies the server's intended role. The system does not become an actual Domain Controller until Active Directory Domain Services is installed and the server is promoted.
-
-### 2. Network Baseline Assessment
-
-Before assigning a static address, the VMware VMnet8 network was inspected.
-
-Identified configuration:
-
-| Network Setting | Value |
-|---|---|
-| Network | `192.168.252.0/24` |
-| Subnet Mask | `255.255.255.0` |
-| VMware NAT Gateway | `192.168.252.2` |
-| VMware DHCP Range | `192.168.252.128 - 192.168.252.254` |
-| Initial Server Address | `192.168.252.129` |
-
-The original server address was dynamically assigned from the VMware DHCP pool.
-
-### 3. Static IPv4 Configuration
-
-The server was changed from DHCP to a manually configured IPv4 address.
+Configured `NS-DC01` with:
 
 | Setting | Value |
 |---|---|
 | IPv4 Address | `192.168.252.10` |
 | Subnet Mask | `255.255.255.0` |
-| Prefix Length | `/24` |
 | Default Gateway | `192.168.252.2` |
 | Preferred DNS | `192.168.252.10` |
 | DHCP | Disabled |
 
-`192.168.252.10` was selected outside the VMware DHCP allocation range to provide predictable addressing for the infrastructure server and reduce the risk of a DHCP allocation conflict.
+The server was assigned a predictable address outside the VMware DHCP allocation range in preparation for providing core infrastructure services.
 
-### 4. Connectivity Validation
+### Connectivity Validation
 
-After static addressing was configured, connectivity was tested.
+Validated the new network configuration by:
 
-The VMware gateway responded successfully:
+- Successfully reaching the VMware NAT gateway.
+- Successfully reaching an external IP address using `ping 8.8.8.8`.
+- Testing DNS resolution separately with `nslookup`.
+- Establishing a pre-DNS baseline before the DNS Server role is deployed.
 
-`ping 192.168.252.2`
+The DNS query did not receive a response because `NS-DC01` was configured to query itself while the DNS Server role had not yet been installed. This result will be compared with post-deployment DNS validation.
 
-External IP connectivity was also verified:
+## Skills Demonstrated
 
-`ping 8.8.8.8`
-
-The external test returned replies with no packet loss, confirming that IP routing remained functional after the static configuration change.
-
-### 5. Pre-DNS Validation
-
-The server's preferred DNS address was configured as:
-
-`192.168.252.10`
-
-This points `NS-DC01` to itself in preparation for hosting the Windows DNS Server role.
-
-A DNS query was tested before DNS Server deployment:
-
-`nslookup microsoft.com`
-
-The query returned no response from `192.168.252.10`.
-
-This result was expected because the server had been configured to query itself for DNS, but the DNS Server role had not yet been installed.
-
-This provides a pre-deployment baseline that can later be compared with DNS functionality after the DNS service is configured.
-
-## Infrastructure Design Decisions
-
-### Static Addressing
-
-Core infrastructure services require predictable network addressing so dependent systems can reliably locate them.
-
-The homelab therefore uses a static address for `NS-DC01` rather than relying on a dynamically assigned VMware DHCP lease.
-
-### DNS Design
-
-The planned Active Directory Domain Controller will also provide DNS services for the Northstar domain environment.
-
-Domain-connected Windows systems will use the internal DNS service so they can locate Active Directory services and internal resources.
-
-External DNS resolution will be validated after the DNS Server role is deployed and configured.
+- Windows Server 2025 deployment
+- VMware virtual machine administration
+- Windows Server configuration
+- IPv4 addressing and subnet identification
+- DHCP versus static addressing
+- DNS client configuration
+- Network connectivity validation
+- Command-line network troubleshooting
+- Infrastructure documentation
+- Production-oriented infrastructure planning
 
 ## Production Considerations
 
-This environment applies production-oriented infrastructure concepts while adapting them to the limitations of a single-host VMware homelab.
+This homelab applies production-oriented practices while adapting them to a single-host virtual environment.
 
-A production environment would additionally consider:
-
-- Formal IP address management and network documentation
-- Dedicated server VLANs or network segments
-- DHCP exclusions or reservations coordinated with network infrastructure
-- Multiple Domain Controllers and DNS servers for redundancy
-- Monitoring and alerting
-- Backup and disaster-recovery procedures
-- Change-management processes
-- Security baselines and hardening standards
-- Controlled administrative access
-
-The homelab will implement applicable concepts while documenting where its architecture differs from a production environment.
+A production implementation would additionally consider formal IP address management, dedicated server networks or VLANs, redundant Domain Controllers and DNS servers, monitoring, backup and disaster recovery, security baselines, controlled administrative access, and formal change management.
 
 ## Next Phase
 
-The next infrastructure phase will deploy:
+`NS-DC01` is prepared for:
 
-- Active Directory Domain Services (AD DS)
+- Active Directory Domain Services
 - DNS Server
-- A new Active Directory forest and domain
-- Domain Controller services on `NS-DC01`
+- Domain Controller promotion
+- Active Directory domain deployment
 
-After deployment, AD DS and DNS functionality will be validated before users, groups, Organizational Units, Group Policy, or domain-joined workstations are introduced.
+AD DS and DNS will be validated before domain users, groups, Organizational Units, Group Policy, or domain-joined workstations are introduced.
