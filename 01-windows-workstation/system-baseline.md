@@ -172,9 +172,9 @@ Read/write access to the new volume was verified through Windows File Explorer.
 
 | Control | Assessment |
 |---|---|
-| Microsoft Defender Antivirus | Reviewed |
-| Real-Time Protection | Reviewed |
-| Windows Defender Firewall | Reviewed |
+| Microsoft Defender Antivirus | Verified Active |
+| Real-Time Protection | Verified Enabled |
+| Windows Defender Firewall | Verified Enabled |
 | User Account Control | Tested |
 | Least-Privilege User Configuration | Implemented |
 | BitLocker | Protection Off |
