@@ -67,3 +67,14 @@ Windows detected the VMware virtual hardware but could not associate it with the
 - Virtual machines require appropriate guest drivers for some virtual hardware.
 - VMware Tools provides drivers and integration components for VMware guest operating systems.
 - A troubleshooting change should always be followed by verification against the original problem.
+
+## Evidence
+
+Supporting screenshots are maintained in the workstation screenshot evidence directory and include:
+
+- Device Manager Code 28 warning
+- VMware device Hardware ID
+- VMware Tools installation media
+- Device Manager verification after remediation
+
+See: [`../screenshots/README.md`](../screenshots/README.md)

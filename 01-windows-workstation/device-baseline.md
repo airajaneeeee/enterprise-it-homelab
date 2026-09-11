@@ -2,9 +2,13 @@
 
 ## Purpose
 
-This document records the initial device and driver assessment performed on the Northstar Solutions Windows 11 workstation using Windows Device Manager.
+This document records the device and driver assessment performed on `NS-W11-01`, the Windows 11 Pro Finance workstation used in the Northstar Solutions enterprise IT homelab.
 
-## Network Adapter
+The assessment included reviewing installed hardware, inspecting driver information, identifying a missing VMware virtual-device driver, performing remediation, and validating the resulting device state.
+
+## Network Adapter Baseline
+
+The workstation network adapter and installed driver were inspected using Windows Device Manager.
 
 | Property | Value |
 |---|---|
@@ -14,13 +18,22 @@ This document records the initial device and driver assessment performed on the 
 | Driver Version | 12.19.1.32 |
 | Digital Signer | Microsoft Windows |
 
+The adapter was reviewed as part of the workstation device baseline before investigating devices reporting warnings or missing drivers.
+
 ## Device Manager Assessment
 
-Device Manager was inspected for disabled devices, unknown devices, warning indicators, and potential driver problems.
+Windows Device Manager was inspected for:
 
-During the assessment, a `Base System Device` was identified under `Other devices` with a yellow warning indicator.
+- Unknown devices
+- Disabled devices
+- Warning indicators
+- Missing drivers
+- Device-status errors
+- Driver information
 
-## Base System Device Finding
+During the assessment, a `Base System Device` was identified under **Other devices** with a yellow warning indicator.
+
+## Device Finding
 
 | Property | Value |
 |---|---|
@@ -29,64 +42,101 @@ During the assessment, a `Base System Device` was identified under `Other device
 | Manufacturer | Unknown |
 | Location | PCI bus 0, device 7, function 7 |
 | Device Manager Error | Code 28 |
-| Status | Drivers are not installed |
+| Initial Status | Drivers are not installed |
 
-### Hardware Identification
+Device Manager **Code 28** indicated that Windows did not have an appropriate driver installed for the device.
 
-The device hardware ID was inspected through:
+## Hardware Identification
 
-`Device Manager → Base System Device → Properties → Details → Hardware Ids`
+Rather than installing an unidentified driver immediately, the device Hardware IDs were inspected through:
 
-The primary hardware ID observed was:
+**Device Manager → Base System Device → Properties → Details → Hardware Ids**
 
-`PCI\VEN_15AD&DEV_0740&SUBSYS_074015AD&REV_10`
+The primary Hardware ID observed was:
 
-### Initial Assessment
+```text
+PCI\VEN_15AD&DEV_0740&SUBSYS_074015AD&REV_10
+```
 
-The `VEN_15AD` portion of the hardware ID identifies VMware as the PCI vendor.
+A compatible identifier was also reviewed:
 
-No driver changes were made during the initial assessment. The device will be identified and an appropriate corrective action determined before modifying the system.
+```text
+PCI\VEN_15AD&DEV_0740&REV_10
+```
 
-## Investigation
+### Hardware ID Interpretation
 
-The unidentified device reported Device Manager error **Code 28**, indicating that its driver was not installed.
+The identifiers provided information about the virtual hardware:
 
-The device Hardware IDs and Compatible IDs were inspected to identify the virtual hardware.
+| Identifier | Interpretation |
+|---|---|
+| `VEN_15AD` | VMware PCI vendor |
+| `DEV_0740` | VMware VMCI device |
 
-Primary Hardware ID:
+The device was therefore identified as a VMware **VMCI (Virtual Machine Communication Interface)** device.
 
-`PCI\VEN_15AD&DEV_0740&SUBSYS_074015AD&REV_10`
+## Root Cause Assessment
 
-Compatible ID:
+The investigation also determined that VMware Tools was not installed in the Windows guest operating system.
 
-`PCI\VEN_15AD&DEV_0740&REV_10`
+Because VMware Tools provides guest drivers and integration components for VMware virtual machines, the missing VMware components were consistent with the unidentified VMCI device and Device Manager Code 28 condition.
 
-The PCI vendor identifier `VEN_15AD` corresponds to VMware. Further investigation identified `DEV_0740` as a VMware VMCI (Virtual Machine Communication Interface) device.
+### Root Cause
 
-VMware Tools was also checked on the guest operating system and was not installed.
-
-## Preliminary Diagnosis
-
-The Base System Device warning is consistent with a missing VMware VMCI device driver in the Windows guest operating system.
-
-VMware Tools has not yet been installed, so remediation will include installing VMware Tools and verifying whether the VMCI device is correctly recognized afterward.
+**Missing VMware guest driver components because VMware Tools was not installed.**
 
 ## Remediation
 
 VMware Tools was installed in the Windows 11 guest operating system to provide the appropriate VMware guest drivers and integration components.
 
-The virtual machine was restarted after installation.
+The virtual machine was restarted after installation so Windows could load and initialize the newly installed components.
 
 ## Post-Remediation Verification
 
-Device Manager was inspected after the restart.
+After the restart, Device Manager was inspected again.
 
-The previously unidentified `Base System Device` and its Code 28 warning were no longer present.
+The previously unidentified `Base System Device` was no longer listed under **Other devices**, and the associated Code 28 warning was no longer present.
 
-The remediation successfully resolved the missing VMware virtual device driver condition.
+This confirmed that installation of VMware Tools successfully resolved the missing virtual-device driver condition.
+
+## Troubleshooting Method
+
+The device issue was handled using the following workflow:
+
+1. Identified a Device Manager warning.
+2. Reviewed the reported Device Manager error code.
+3. Inspected the device Hardware IDs.
+4. Used the PCI vendor and device identifiers to determine the hardware type.
+5. Checked whether the required VMware guest components were installed.
+6. Identified the likely root cause.
+7. Installed VMware Tools.
+8. Restarted the workstation.
+9. Rechecked Device Manager.
+10. Verified that the warning was resolved.
+
+This approach avoided installing an arbitrary driver before identifying the affected hardware and likely cause.
+
+## Production Considerations
+
+In a production environment, driver remediation should follow organizational endpoint-management and change-control practices.
+
+Before installing or updating drivers, an administrator should consider:
+
+- Hardware and operating-system compatibility
+- Approved software and driver sources
+- Vendor documentation
+- Driver signing and authenticity
+- Business impact and restart requirements
+- Change-management requirements
+- Rollback or recovery options
+- Post-change validation
+
+Drivers and guest integration components should be obtained from approved and trusted sources rather than unverified third-party download sites.
 
 ## Final Status
 
 **Resolved**
 
-The workstation no longer displays the previously observed Base System Device warning in Device Manager.
+The unidentified VMware virtual device and Device Manager Code 28 condition were successfully resolved after VMware Tools was installed and the workstation was restarted.
+
+`NS-W11-01` no longer displayed the previously observed `Base System Device` warning during post-remediation verification.

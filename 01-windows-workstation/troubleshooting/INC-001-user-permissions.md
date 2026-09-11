@@ -45,3 +45,13 @@ This configuration follows the principle of least privilege.
 - Access-denied errors can indicate intentional permission restrictions.
 - Administrative access should not be granted permanently simply to complete a single privileged operation.
 - User identity and group membership should be verified before changing permissions.
+
+## Evidence
+
+Supporting screenshots are maintained in the workstation screenshot evidence directory and include:
+
+- Standard-user account and group-membership verification
+- UAC administrative credential prompt
+- Elevated administrative command session
+
+See: [`../screenshots/README.md`](../screenshots/README.md)

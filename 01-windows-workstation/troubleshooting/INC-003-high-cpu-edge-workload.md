@@ -103,3 +103,16 @@ The active Microsoft Edge browsing session was closed normally, which removed th
 - Closing one high-resource process may not resolve an application-wide workload issue.
 - Virtual machine resource allocation must be considered when evaluating performance.
 - Troubleshooting conclusions should be based on verification rather than assumptions.
+
+## Evidence
+
+Supporting screenshots are maintained in the workstation screenshot evidence directory and include:
+
+- Initial Task Manager resource utilization
+- Processes sorted by CPU utilization
+- Expanded Microsoft Edge process group
+- Process-level investigation using the Details tab
+- CPU utilization during intermediate remediation
+- CPU utilization after closing the active Edge workload
+
+See: [`../screenshots/README.md`](../screenshots/README.md)

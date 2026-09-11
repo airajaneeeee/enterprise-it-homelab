@@ -8,7 +8,7 @@ As the assigned junior IT support technician, I am responsible for preparing the
 
 ## Workstation
 
-- Computer Name: NS-W11-01
+- Computer Name: `NS-W11-01`
 - Operating System: Windows 11 Pro
 - Platform: VMware
 - Department: Finance
@@ -23,7 +23,7 @@ As the assigned junior IT support technician, I am responsible for preparing the
 - Inspect Windows services
 - Validate network configuration
 - Troubleshoot common DNS and DHCP issues
-- Verify Windows system integrity
+- Review Windows system-integrity assessment and repair tools
 - Review storage configuration
 - Review Windows Defender and Firewall
 - Assess BitLocker status
@@ -185,9 +185,20 @@ Get-NetFirewallProfile
 Get-NetConnectionProfile
 ```
 
-## Current Status
+## Documentation
 
-**Windows 11 Workstation Module — Completed**
+Supporting technical documentation for this workstation includes:
+
+- System configuration and workstation baseline
+- Device and driver assessment
+- Configuration and validation screenshots
+- Documented troubleshooting incidents
+- Windows 11 administration knowledge base
+- Interview preparation based on completed lab work
+
+## Module Status
+
+**Windows 11 Workstation Administration — Complete**
 
 Completed areas:
 
@@ -208,4 +219,4 @@ Completed areas:
 - BitLocker status assessment
 - Technical documentation and troubleshooting case development
 
-The workstation will continue to be used in later lab modules for domain integration, centralized policy management, networking, security hardening, and enterprise administration.
+The workstation will continue to be used in later Northstar Solutions infrastructure modules for domain integration, centralized policy management, networking, security hardening, and enterprise administration.
