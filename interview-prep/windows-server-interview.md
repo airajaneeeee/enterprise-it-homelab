@@ -130,11 +130,17 @@ Because of that, incorrect DNS configuration can cause domain joins, authenticat
 
 ## 2. Why does your Domain Controller use itself as its DNS server?
 
-`NS-DC01` hosts DNS for the Northstar Active Directory environment, so its preferred DNS server is configured as:
+`NS-DC01` hosts DNS for the Northstar Active Directory environment, so it uses its own local DNS service.
+
+Its current IPv4 DNS client setting is:
+
+`127.0.0.1`
+
+which is the IPv4 loopback address for the same server.
+
+`NS-DC01` itself is reachable on the network at:
 
 `192.168.252.10`
-
-which is its own address.
 
 This allows the Domain Controller to use the Active Directory-aware internal DNS infrastructure.
 
@@ -179,6 +185,40 @@ During creation of the new forest, the wizard indicated that a DNS delegation co
 In my isolated homelab, there was no existing authoritative parent DNS infrastructure managing the simulated namespace.
 
 I therefore did not create a delegation, and the warning did not prevent successful deployment of the new forest and DNS environment.
+
+## 6. Do you currently use DNS forwarders?
+
+No explicit DNS forwarders are currently configured on `NS-DC01`.
+
+External DNS resolution still succeeds because Windows DNS can use root hints when no forwarder is configured.
+
+This helped me distinguish between the DNS client setting on the server and the forwarding behavior of the DNS Server service.
+
+## 7. What is the difference between a DNS client setting and a DNS forwarder?
+
+A DNS client setting tells a computer which DNS server it should query.
+
+A DNS forwarder tells a DNS server where it should send queries that it cannot answer from its own authoritative zones or cache.
+
+In my lab, `NS-DC01` uses its own local DNS service.
+
+No explicit forwarder is currently configured, so external lookups can be resolved using root hints.
+
+## 8. What does `::1` mean when `nslookup` shows it as the DNS server?
+
+`::1` is the IPv6 loopback address.
+
+It refers back to the local computer, similar to `127.0.0.1` in IPv4.
+
+When `nslookup` displayed `::1`, it was still attempting to query the DNS service running locally on `NS-DC01`.
+
+## 9. Why didn't you disable IPv6 when `nslookup` showed `::1`?
+
+I did not treat the use of the IPv6 loopback address as a reason to disable IPv6.
+
+I kept IPv6 enabled and verified the environment separately.
+
+The server showed IPv4 Internet connectivity and no active IPv6 traffic during the baseline check, while internal and external DNS resolution were both successfully verified.
 
 ---
 
@@ -253,6 +293,25 @@ The roles included:
 - Domain Naming Master
 
 I will be studying FSMO role administration in more depth later in the project.
+
+## 6. What server-management settings did you verify before continuing with Active Directory administration?
+
+Before moving into user, group, and OU administration, I completed a short post-deployment server baseline.
+
+I verified that:
+
+- The network profile was `DomainAuthenticated`.
+- Remote Desktop was enabled.
+- Network Level Authentication remained enabled.
+- Remote Management was enabled.
+- Windows Defender Firewall remained enabled.
+- An ICMPv4 Echo Request inbound rule was enabled for controlled connectivity testing.
+- IPv6 remained enabled.
+- VMware Tools was operational.
+- The time zone was correct.
+- Windows Update settings/status were checked.
+
+The goal was to prepare the server for realistic administration and troubleshooting without weakening the server by disabling the firewall or unnecessarily disabling IPv6.
 
 ---
 

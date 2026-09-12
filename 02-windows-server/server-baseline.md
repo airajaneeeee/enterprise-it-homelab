@@ -70,11 +70,19 @@ The initial configuration was recorded before assigning the server a predictable
 | Subnet Mask | `255.255.255.0` |
 | Prefix Length | `/24` |
 | Default Gateway | `192.168.252.2` |
-| Preferred DNS | `192.168.252.10` |
+| Preferred DNS | `127.0.0.1` |
 | Alternate DNS | None |
 | DHCP Enabled | No |
 
-The server uses its own IPv4 address as its preferred DNS server because it now hosts DNS for the Northstar Solutions Active Directory domain.
+`NS-DC01` uses its own local DNS service because it hosts DNS for the Northstar Solutions Active Directory domain.
+
+The current IPv4 DNS client setting is `127.0.0.1`, which is the IPv4 loopback address and points back to the DNS service running on the same server.
+
+The server itself remains reachable on the network at:
+
+```text
+192.168.252.10
+```
 
 ## Pre-Deployment Validation
 
@@ -273,6 +281,28 @@ The query successfully returned public IPv4 addresses for `microsoft.com`.
 
 This confirmed that external DNS resolution was functioning through the DNS configuration on `NS-DC01`.
 
+### DNS Forwarders
+
+The DNS Server properties were reviewed.
+
+No explicit DNS forwarders are currently configured.
+
+External DNS resolution still succeeds because Windows DNS can use root hints when no forwarder is configured.
+
+### IPv6 and Local DNS
+
+During `nslookup` testing, the DNS server was displayed as:
+
+```text
+::1
+```
+
+`::1` is the IPv6 loopback address and refers to the local computer.
+
+IPv6 was intentionally left enabled.
+
+The presence of `::1` alone was not treated as a reason to disable IPv6.
+
 ### Before and After Comparison
 
 | Test | Before DNS Deployment | After DNS Deployment |
@@ -284,6 +314,34 @@ This confirmed that external DNS resolution was functioning through the DNS conf
 | External DNS resolution | Failed through `192.168.252.10` | Successful |
 
 The comparison demonstrates the change from a server configured to query a DNS service that had not yet been deployed to an operational Active Directory DNS server capable of resolving both the internal domain namespace and external DNS names.
+
+## Post-Deployment Administration Baseline
+
+The following baseline checks were completed after AD DS and DNS deployment and before beginning Active Directory object administration.
+
+| Item | Verified State |
+|---|---|
+| Network Profile | `DomainAuthenticated` |
+| IPv4 Connectivity | Internet |
+| IPv6 | Enabled |
+| IPv6 Connectivity | `NoTraffic` observed during baseline check |
+| Remote Desktop | Enabled |
+| Network Level Authentication | Enabled |
+| Remote Management | Enabled |
+| Windows Defender Firewall | Enabled |
+| ICMPv4 Echo Request | Inbound troubleshooting rule enabled |
+| DNS Forwarders | None configured |
+| External DNS Resolution | Successful |
+| External Resolution Method | Root hints available |
+| VMware Tools | Installed / operational |
+| Time Zone | Verified |
+| Windows Update | Verified |
+
+The Windows Firewall remains enabled.
+
+Rather than disabling the firewall, an ICMPv4 Echo Request inbound rule was enabled to support controlled connectivity testing and troubleshooting within the lab.
+
+IPv6 was also kept enabled rather than disabled simply because the current Northstar environment primarily uses IPv4.
 
 ## Infrastructure Role
 
@@ -348,5 +406,15 @@ The documented infrastructure baseline currently includes:
 - Active Directory and DNS service validation
 - Internal DNS resolution
 - External DNS resolution
+- Domain-authenticated network profile validation
+- Remote Desktop with Network Level Authentication
+- Remote Management
+- Windows Firewall retained with ICMPv4 Echo Request enabled for troubleshooting
+- DNS forwarders reviewed; none configured
+- Root-hints-based external DNS resolution confirmed
+- IPv6 retained
+- VMware Tools verification
+- Time zone verification
+- Windows Update baseline check
 
 `NS-DC01` will continue to serve as the primary infrastructure server for later Northstar Solutions modules involving Organizational Units, domain users and groups, domain-joined workstations, centralized Group Policy, DHCP, file services, PowerShell administration, security, and infrastructure troubleshooting.

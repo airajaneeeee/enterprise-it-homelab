@@ -53,7 +53,8 @@ As the assigned junior IT administrator, I am responsible for deploying and conf
 - Reconfigured the server with the static IPv4 address `192.168.252.10`.
 - Configured subnet mask `255.255.255.0` and default gateway `192.168.252.2`.
 - Disabled DHCP addressing on the server.
-- Configured `192.168.252.10` as the preferred DNS server in preparation for hosting DNS locally.
+- Configured the server to use itself for DNS in preparation for hosting the Northstar internal DNS service.
+- After Domain Controller promotion, verified the current IPv4 DNS client setting as `127.0.0.1`, which points back to the DNS service running locally on `NS-DC01`.
 
 ### Pre-Deployment Network and DNS Validation
 
@@ -112,6 +113,27 @@ NS-DC01.ad.northstarsolutions.com
 - Tested external DNS resolution using `microsoft.com`.
 - Verified successful external name resolution after DNS Server deployment.
 - Confirmed that `NS-DC01` could provide internal Active Directory name resolution while also resolving external DNS names.
+- Verified that no explicit DNS forwarders are currently configured.
+- Confirmed that external DNS resolution still succeeds using the Windows DNS server's root-hints capability.
+- Observed that `nslookup` could select the IPv6 loopback address `::1` when querying the local DNS service.
+- Kept IPv6 enabled rather than disabling it solely because the local DNS server was represented by `::1`.
+
+### Post-Deployment Server Baseline
+
+After AD DS and DNS deployment, the server administration baseline was reviewed before beginning Active Directory object administration.
+
+- Verified the active network profile is `DomainAuthenticated`.
+- Verified IPv4 Internet connectivity.
+- Kept IPv6 enabled; the baseline check showed no active IPv6 traffic.
+- Verified Remote Desktop is enabled.
+- Kept Network Level Authentication enabled for Remote Desktop.
+- Verified Windows Remote Management is enabled.
+- Verified the server time zone.
+- Verified Windows Update settings/status.
+- Verified VMware Tools is installed and operational.
+- Kept Windows Defender Firewall enabled.
+- Enabled the inbound `File and Printer Sharing (Echo Request - ICMPv4-In)` rule to support lab connectivity testing and troubleshooting.
+- Reviewed DNS forwarder configuration and confirmed that no explicit forwarders are currently configured.
 
 ## Tools and Technologies Used
 
@@ -161,7 +183,7 @@ Supporting technical documentation for this server includes:
 - Windows Server administration knowledge base
 - Interview preparation based on completed lab work
 
-Additional troubleshooting incidents will be documented separately when actual infrastructure problems are encountered and investigated.
+Unexpected project incidents and intentionally created real-world support scenarios will be documented separately and labeled accurately as genuine incidents, simulated support incidents, or troubleshooting exercises.
 
 ## Production Considerations
 
@@ -202,6 +224,16 @@ Completed areas:
 - Active Directory and DNS service validation
 - Internal DNS resolution validation
 - External DNS resolution validation
+- Domain-authenticated network profile validation
+- Remote Desktop validation
+- Network Level Authentication validation
+- Remote Management validation
+- Windows Firewall / ICMPv4 troubleshooting rule configuration
+- DNS forwarding/root-hints review
+- IPv6 retained and reviewed rather than disabled
+- VMware Tools verification
+- Time zone verification
+- Windows Update baseline check
 - Infrastructure documentation
 
 The server infrastructure will continue to be developed with Organizational Units, domain users, security groups, Windows 11 domain integration, centralized Group Policy, DHCP, file services, PowerShell administration, security configuration, and infrastructure troubleshooting.

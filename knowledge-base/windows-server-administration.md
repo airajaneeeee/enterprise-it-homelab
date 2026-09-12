@@ -134,21 +134,115 @@ DNS is especially important in Microsoft Active Directory environments because d
 
 ---
 
-# Why NS-DC01 Uses Its Own DNS Address
+# Why NS-DC01 Uses Its Own DNS Service
 
 `NS-DC01` hosts DNS for the Northstar Solutions Active Directory environment.
 
-Its preferred DNS server is configured as:
+Its current IPv4 DNS client setting is:
+
+`127.0.0.1`
+
+which is the IPv4 loopback address and points back to the DNS service running on `NS-DC01`.
+
+The server's network IPv4 address remains:
 
 `192.168.252.10`
 
-which is the address of `NS-DC01` itself.
+Active Directory relies heavily on DNS.
 
-Active Directory relies heavily on DNS. Domain members use the internal DNS infrastructure to locate Domain Controllers and Active Directory services.
+Domain members use the internal DNS infrastructure to locate Domain Controllers and Active Directory services.
 
 Domain clients should therefore use the organization's Active Directory-aware internal DNS infrastructure rather than bypassing it with arbitrary public DNS resolvers.
 
 External DNS names can still be resolved through the internal DNS infrastructure.
+
+---
+
+# DNS Client Address vs DNS Forwarder
+
+These are two different configurations.
+
+A **DNS client address** tells a computer which DNS server to query.
+
+For `NS-DC01`, the current IPv4 DNS client address is:
+
+`127.0.0.1`
+
+This points the Domain Controller back to the DNS Server service running locally.
+
+A **DNS forwarder** is configured on the DNS Server service and tells that DNS server where to send queries that it cannot answer from its own authoritative zones or cache.
+
+Northstar currently has no explicit DNS forwarders configured.
+
+External DNS resolution still succeeds because Windows DNS can use root hints when no forwarder is available.
+
+---
+
+# Loopback Addresses
+
+Loopback addresses refer back to the same computer.
+
+Common examples:
+
+- IPv4 loopback: `127.0.0.1`
+- IPv6 loopback: `::1`
+
+During `nslookup` testing on `NS-DC01`, the DNS server was displayed as:
+
+`::1`
+
+This still referred to the local server.
+
+The presence of `::1` alone is not a reason to disable IPv6.
+
+---
+
+# IPv6 Baseline
+
+IPv6 remains enabled on `NS-DC01`.
+
+During the post-deployment baseline check:
+
+- IPv4 connectivity reported Internet access.
+- IPv6 connectivity reported `NoTraffic`.
+
+The lab currently relies primarily on IPv4, but IPv6 was not disabled merely because the current workload is IPv4-based.
+
+---
+
+# DNS with Multiple Domain Controllers
+
+The same core concept applies when an Active Directory environment has multiple Domain Controllers: domain systems should use internal Active Directory-aware DNS servers.
+
+For example, with two Domain Controllers that both host DNS, each DC can use internal DNS and clients can be configured with more than one internal DNS server for redundancy.
+
+Active Directory-integrated DNS zones can replicate through Active Directory.
+
+This avoids maintaining independent manual copies of the same internal DNS zone.
+
+A multi-DC design improves availability compared with Northstar's current single-DC lab, but the current environment intentionally remains small because of host resource constraints.
+
+---
+
+# Remote Administration and Firewall Baseline
+
+Before beginning centralized Active Directory administration, `NS-DC01` was checked for basic administration readiness.
+
+Verified items included:
+
+- Network profile: `DomainAuthenticated`
+- Remote Desktop: enabled
+- Network Level Authentication: enabled
+- Remote Management: enabled
+- Windows Defender Firewall: enabled
+- ICMPv4 Echo Request inbound rule: enabled for troubleshooting
+- VMware Tools: operational
+- Time zone: verified
+- Windows Update: verified
+
+The firewall was kept enabled.
+
+Connectivity testing was supported by enabling the specific ICMPv4 rule rather than disabling firewall protection.
 
 ---
 

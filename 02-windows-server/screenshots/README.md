@@ -97,6 +97,8 @@ The address `192.168.252.10` is outside the VMware DHCP allocation range used by
 
 `NS-DC01` was also configured to use its own address as its preferred DNS server in preparation for hosting DNS for the Active Directory environment.
 
+After Domain Controller promotion, the server's current IPv4 DNS client configuration was later verified as `127.0.0.1`, which points to the DNS service running locally on `NS-DC01`. This later state is recorded in `server-baseline.md`; an additional screenshot was not retained because the existing evidence already demonstrates the server's DNS deployment and successful resolution.
+
 ### Validation
 
 Connectivity was tested before Active Directory and DNS deployment using:
@@ -347,7 +349,7 @@ The evidence is intentionally selective.
 
 Not every wizard page, command, or administrative action requires its own screenshot.
 
-Detailed technical configuration is maintained in `server-baseline.md`, reusable concepts and procedures are maintained in the Windows Server Knowledge Base, and actual troubleshooting incidents will be documented separately if they occur.
+Detailed technical configuration is maintained in `server-baseline.md`, reusable concepts and procedures are maintained in the Windows Server Knowledge Base, and troubleshooting evidence will be documented separately as genuine project incidents, simulated support incidents, or focused troubleshooting exercises.
 
 Additional screenshots should only be added when they demonstrate a new administrative capability, important configuration change, meaningful validation result, or genuine troubleshooting activity.
 
