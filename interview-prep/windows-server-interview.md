@@ -1,12 +1,14 @@
 # Windows Server Administration — Interview Preparation
 
-This document contains interview questions and sample answers based on the hands-on Windows Server, networking, Active Directory, and DNS work completed in the Northstar Solutions enterprise IT homelab.
+This document contains interview questions and sample answers based on the Windows Server, DNS, directory administration, and workstation domain-integration work recorded through Phase 5 of the Northstar Solutions enterprise IT homelab.
+
+Answers distinguish completed lab actions from hypothetical troubleshooting approaches and future work. Technical detail and supporting evidence are maintained in the [server baseline](../02-windows-server/server-baseline.md), [screenshot guide](../02-windows-server/screenshots/README.md), and [server knowledge base](../knowledge-base/windows-server-administration.md).
 
 ---
 
-# 1. Windows Server and Network Configuration
+## 1. Windows Server and Network Configuration
 
-## 1. Why would you assign a static IP address to a server?
+### 1. Why would you assign a static IP address to a server?
 
 A server providing core infrastructure services should generally have predictable network addressing so clients and other systems can reliably locate its services.
 
@@ -20,7 +22,7 @@ The address is outside the VMware DHCP allocation range used by the lab.
 
 In production, I would follow the organization's IP address management and network design standards rather than independently selecting an address.
 
-## 2. What is the difference between DHCP and static addressing?
+### 2. What is the difference between DHCP and static addressing?
 
 DHCP automatically provides network configuration such as an IP address, subnet mask, gateway, and DNS server information.
 
@@ -28,7 +30,7 @@ A manually configured static address remains predictable unless an administrator
 
 In my lab, I changed `NS-DC01` from DHCP to static addressing before making it a Domain Controller and DNS Server.
 
-## 3. What does a default gateway do?
+### 3. What does a default gateway do?
 
 A default gateway provides a path toward destinations outside the host's local subnet.
 
@@ -42,7 +44,7 @@ and uses the VMware NAT gateway:
 
 I verified gateway connectivity after configuring the server's static address.
 
-## 4. How would you distinguish a DNS problem from general network connectivity?
+### 4. How would you distinguish a DNS problem from general network connectivity?
 
 I would test the functions separately.
 
@@ -56,9 +58,9 @@ After DNS Server deployment, external DNS resolution succeeded.
 
 ---
 
-# 2. Windows Server Roles and Active Directory
+## 2. Windows Server Roles and Active Directory
 
-## 1. What is the difference between a Windows Server role and a feature?
+### 1. What is the difference between a Windows Server role and a feature?
 
 A server role represents a primary responsibility performed by the server, such as Active Directory Domain Services, DNS Server, or DHCP Server.
 
@@ -66,7 +68,7 @@ A feature provides additional operating-system functionality or supports install
 
 In my lab, I installed the Active Directory Domain Services and DNS Server roles on `NS-DC01`.
 
-## 2. What is Active Directory Domain Services?
+### 2. What is Active Directory Domain Services?
 
 Active Directory Domain Services provides centralized directory, identity, authentication, and management capabilities for Windows domain environments.
 
@@ -74,7 +76,7 @@ It can centrally manage objects such as users, computers, groups, and Organizati
 
 In my homelab, I installed AD DS on Windows Server 2025 and promoted `NS-DC01` as the first Domain Controller.
 
-## 3. What is the difference between a forest and a domain?
+### 3. What is the difference between a forest and a domain?
 
 A forest is the top-level logical structure of an Active Directory environment and can contain one or more domains.
 
@@ -84,7 +86,7 @@ My Northstar environment currently uses a single-domain forest:
 
 `ad.northstarsolutions.com`
 
-## 4. What is a Domain Controller?
+### 4. What is a Domain Controller?
 
 A Domain Controller is a Windows Server running Active Directory Domain Services and providing directory services for an Active Directory domain.
 
@@ -94,7 +96,7 @@ My first Northstar Domain Controller is:
 
 `NS-DC01.ad.northstarsolutions.com`
 
-## 5. Does installing the AD DS role automatically make a server a Domain Controller?
+### 5. Does installing the AD DS role automatically make a server a Domain Controller?
 
 No.
 
@@ -102,7 +104,7 @@ Installing the Active Directory Domain Services role installs the required serve
 
 In my lab, I first installed AD DS and DNS Server and then promoted `NS-DC01` as the first Domain Controller in a new forest.
 
-## 6. What happens when you promote the first Domain Controller in a new forest?
+### 6. What happens when you promote the first Domain Controller in a new forest?
 
 In my lab, promotion created the new Active Directory forest and root domain:
 
@@ -118,9 +120,9 @@ After promotion, the server restarted and I validated the resulting domain and f
 
 ---
 
-# 3. Active Directory and DNS
+## 3. Active Directory and DNS
 
-## 1. Why is DNS important to Active Directory?
+### 1. Why is DNS important to Active Directory?
 
 Active Directory depends heavily on DNS.
 
@@ -128,7 +130,7 @@ Domain clients use DNS not only for normal hostname resolution but also to locat
 
 Because of that, incorrect DNS configuration can cause domain joins, authentication, Group Policy, and other Active Directory operations to fail.
 
-## 2. Why does your Domain Controller use itself as its DNS server?
+### 2. Why does your Domain Controller use itself as its DNS server?
 
 `NS-DC01` hosts DNS for the Northstar Active Directory environment, so it uses its own local DNS service.
 
@@ -144,9 +146,9 @@ which is the IPv4 loopback address for the same server.
 
 This allows the Domain Controller to use the Active Directory-aware internal DNS infrastructure.
 
-Domain clients will also need to use the Northstar internal DNS service when they are integrated into the domain.
+My domain-joined workstation, `NS-W11-01`, uses that internal DNS service through the server's network address, `192.168.252.10`. The loopback address is used on the DC itself, not as the workstation's DNS server.
 
-## 3. Why shouldn't an Active Directory client simply use a public DNS server such as 8.8.8.8?
+### 3. Why shouldn't an Active Directory client simply use a public DNS server such as 8.8.8.8?
 
 Public DNS resolvers do not contain the private Active Directory DNS records required for the Northstar domain.
 
@@ -154,7 +156,7 @@ Domain clients need to query the internal DNS infrastructure so they can locate 
 
 The internal DNS server can handle the Active Directory namespace while still providing resolution for external names.
 
-## 4. How did you verify DNS after deployment?
+### 4. How did you verify DNS after deployment?
 
 I tested both internal and external DNS resolution.
 
@@ -178,7 +180,7 @@ and confirmed that external DNS resolution also succeeded.
 
 This allowed me to verify internal and external resolution separately.
 
-## 5. What was the DNS delegation warning you encountered during Domain Controller promotion?
+### 5. What was the DNS delegation warning you encountered during Domain Controller promotion?
 
 During creation of the new forest, the wizard indicated that a DNS delegation could not be created because an authoritative parent zone could not be found.
 
@@ -186,7 +188,7 @@ In my isolated homelab, there was no existing authoritative parent DNS infrastru
 
 I therefore did not create a delegation, and the warning did not prevent successful deployment of the new forest and DNS environment.
 
-## 6. Do you currently use DNS forwarders?
+### 6. Do you currently use DNS forwarders?
 
 No explicit DNS forwarders are currently configured on `NS-DC01`.
 
@@ -194,7 +196,7 @@ External DNS resolution still succeeds because Windows DNS can use root hints wh
 
 This helped me distinguish between the DNS client setting on the server and the forwarding behavior of the DNS Server service.
 
-## 7. What is the difference between a DNS client setting and a DNS forwarder?
+### 7. What is the difference between a DNS client setting and a DNS forwarder?
 
 A DNS client setting tells a computer which DNS server it should query.
 
@@ -204,7 +206,7 @@ In my lab, `NS-DC01` uses its own local DNS service.
 
 No explicit forwarder is currently configured, so external lookups can be resolved using root hints.
 
-## 8. What does `::1` mean when `nslookup` shows it as the DNS server?
+### 8. What does `::1` mean when `nslookup` shows it as the DNS server?
 
 `::1` is the IPv6 loopback address.
 
@@ -212,7 +214,7 @@ It refers back to the local computer, similar to `127.0.0.1` in IPv4.
 
 When `nslookup` displayed `::1`, it was still attempting to query the DNS service running locally on `NS-DC01`.
 
-## 9. Why didn't you disable IPv6 when `nslookup` showed `::1`?
+### 9. Why didn't you disable IPv6 when `nslookup` showed `::1`?
 
 I did not treat the use of the IPv6 loopback address as a reason to disable IPv6.
 
@@ -222,9 +224,9 @@ The server showed IPv4 Internet connectivity and no active IPv6 traffic during t
 
 ---
 
-# 4. Active Directory Validation
+## 4. Active Directory Validation
 
-## 1. How did you verify that the Domain Controller was working after promotion?
+### 1. How did you verify that the Domain Controller was working after promotion?
 
 I did not rely only on the installation wizard.
 
@@ -252,7 +254,7 @@ The results confirmed the correct domain and forest, the Domain Controller, Glob
 
 I also tested internal and external DNS resolution.
 
-## 2. What is a Global Catalog?
+### 2. What is a Global Catalog?
 
 A Global Catalog is a Domain Controller capability that provides a searchable representation of objects across an Active Directory forest and supports important directory operations.
 
@@ -260,7 +262,7 @@ During my lab, `NS-DC01` was configured as a Global Catalog.
 
 I verified that configuration using `Get-ADForest`.
 
-## 3. What is DSRM?
+### 3. What is DSRM?
 
 DSRM stands for Directory Services Restore Mode.
 
@@ -268,7 +270,7 @@ It is a special recovery mode used for Active Directory maintenance and recovery
 
 I configured a DSRM password during Domain Controller promotion, but I do not store that password in my public project documentation.
 
-## 4. What are forest and domain functional levels?
+### 4. What are forest and domain functional levels?
 
 Forest and domain functional levels determine which Active Directory capabilities are available and which Windows Server versions can participate as Domain Controllers.
 
@@ -276,7 +278,7 @@ My lab uses Windows Server 2025 forest and domain functional levels because the 
 
 In production, compatibility with existing infrastructure would need to be evaluated before changing functional levels.
 
-## 5. What are FSMO roles?
+### 5. What are FSMO roles?
 
 FSMO stands for Flexible Single Master Operations.
 
@@ -294,7 +296,7 @@ The roles included:
 
 I will be studying FSMO role administration in more depth later in the project.
 
-## 6. What server-management settings did you verify before continuing with Active Directory administration?
+### 6. What server-management settings did you verify before continuing with Active Directory administration?
 
 Before moving into user, group, and OU administration, I completed a short post-deployment server baseline.
 
@@ -315,13 +317,251 @@ The goal was to prepare the server for realistic administration and troubleshoot
 
 ---
 
-# 5. Homelab Design and Production Considerations
+## 5. DNS Record Administration
 
-## 1. How did you configure your Windows Server homelab?
+### 1. What is the difference between an A record and a PTR record?
+
+An A record maps a hostname to an IPv4 address. A PTR record maps a reverse DNS name to a hostname.
+
+In my lab, I verified:
+
+```text
+Forward: ns-dc01.ad.northstarsolutions.com → 192.168.252.10
+Reverse: 192.168.252.10 → ns-dc01.ad.northstarsolutions.com
+```
+
+I configured the reverse lookup zone for the `192.168.252.0/24` network and validated the A and PTR results using DNS-only queries directed at the local DNS service on `NS-DC01`.
+
+### 2. Does DNS search A records backwards to perform a reverse lookup?
+
+No. Reverse DNS uses its own zone and PTR records.
+
+For my lab subnet, the reverse zone is `252.168.192.in-addr.arpa`. The PTR owner for host `.10` is `10.252.168.192.in-addr.arpa`, and it points to the DC hostname.
+
+I tested forward and reverse resolution separately rather than assuming one successful lookup proved both records were correct.
+
+### 3. What is a CNAME record, and how did you practice using one?
+
+A CNAME is an alias that points to another DNS name rather than directly to an IP address.
+
+My temporary exercise used:
+
+```text
+dns-alias.ad.northstarsolutions.com
+                 ↓
+dns-lab.ad.northstarsolutions.com
+                 ↓
+192.168.252.10
+```
+
+After validation, I removed both training records. They were an administration exercise, not additional permanent servers. A successful alias lookup demonstrated name resolution, not the availability of a new application service.
+
+### 4. What is an SRV record, and why does Active Directory use it?
+
+An SRV record identifies a service's target host and port, with priority and weight information. Active Directory clients use these records to discover services such as LDAP, Kerberos, and the Global Catalog.
+
+I inspected AD-created records and checked LDAP SRV resolution from the workstation before joining it to the domain:
+
+```powershell
+Resolve-DnsName _ldap._tcp.dc._msdcs.ad.northstarsolutions.com -Type SRV
+```
+
+That helped me connect DNS configuration with Domain Controller discovery rather than treating DNS only as hostname-to-address mapping.
+
+### 5. Why did you select secure dynamic updates for the reverse zone?
+
+The zone is Active Directory-integrated, so I configured secure updates to use authentication and permissions for record changes rather than allowing arbitrary unauthenticated updates.
+
+The setting is recorded in my lab notes. My retained DNS screenshot shows the lookup results rather than the zone's update-policy properties.
+
+In a production environment, I would assess the clients and services that need to register records before selecting or changing the update policy.
+
+### 6. What did you learn from comparing default and DNS-only queries?
+
+The ordinary queries in my screenshot displayed `Section = Question`, while the explicit queries returned the expected records in `Section = Answer`.
+
+For the explicit PTR test on `NS-DC01`, I used:
+
+```powershell
+Resolve-DnsName 192.168.252.10 -Type PTR -Server 127.0.0.1 -DnsOnly
+```
+
+I learned to specify the server, record type, and query method when validating DNS. I would not infer the source of the ordinary results from that display alone or treat the Answer section as proof of the authoritative-answer flag.
+
+This was a validation observation, not a formal troubleshooting incident.
+
+---
+
+## 6. Active Directory Administration
+
+### 1. What is an Organizational Unit, and how did you use OUs?
+
+An OU is an Active Directory container used for administrative organization, delegation, and Group Policy targeting.
+
+I created a top-level `Northstar` OU with Users, Workstations, Groups, Service Accounts, and Disabled Objects branches. Users and Workstations have Finance, IT, and Operations sub-OUs.
+
+I kept `NS-DC01` in the default Domain Controllers OU. The custom structure supports administration and future policy scope; creating it does not mean a new Group Policy has already been deployed.
+
+### 2. What is the difference between an OU and a security group?
+
+An OU provides an administrative location and potential policy scope. A security group represents membership that can be used in authorization.
+
+Moving a user to another OU does not automatically change group membership. During Noah Wilson's fictional transfer from Finance to Operations, I separately changed his OU, department and title, manager, and departmental group membership.
+
+That demonstrated why changing a directory attribute alone is not a complete access-transfer process.
+
+### 3. What is a Distinguished Name?
+
+A Distinguished Name identifies an object and its location within the directory hierarchy.
+
+For example, Ava Chen's recorded DN is:
+
+```text
+CN=Ava Chen,OU=Finance,OU=Users,OU=Northstar,DC=ad,DC=northstarsolutions,DC=com
+```
+
+I used `Get-ADUser` to verify placement after creating the employee accounts. The DN is different from the logon identities `NORTHSTAR\ava.chen` and `ava.chen@ad.northstarsolutions.com`.
+
+### 4. How do you use Global and Domain Local groups?
+
+A common approach is to use Global groups to collect accounts by role or department and Domain Local groups to assign access to resources in the resource domain.
+
+I created `GG-Finance-Users`, `GG-IT-Users`, and `GG-Operations-Users` as Global Security groups and verified departmental memberships.
+
+Resource-oriented Domain Local groups are future work for the file-services phase. I have not claimed resource permissions simply because departmental groups exist.
+
+### 5. What is AGDLP, and how much have you implemented?
+
+AGDLP describes this access-control model:
+
+```text
+Accounts → Global Groups → Domain Local Groups → Permissions
+```
+
+I have implemented Accounts → Global Groups. Ava Chen and Daniel Kim, for example, belong to `GG-Finance-Users`.
+
+I will introduce resource-specific Domain Local groups and permissions when actual resources such as file shares are available. The complete model is not yet implemented in my lab.
+
+### 6. How did you practice employee onboarding, transfer, and offboarding?
+
+I created a fictional employee, Noah Wilson, and onboarded him into Finance with a title, department, manager, OU placement, and Finance group membership.
+
+I then simulated a transfer to Operations and updated those controls separately. For offboarding, I disabled the account, removed departmental group membership, and moved it into the Disabled Objects OU while retaining the directory object.
+
+The final PowerShell output showed `Enabled = False` and only `Domain Users` in the displayed group memberships.
+
+This was a controlled identity-lifecycle exercise. Real offboarding would also involve the organization's applications, sessions, devices, and other access systems; my AD exercise does not demonstrate all of those activities.
+
+### 7. Why would you avoid making every IT employee a Domain Admin?
+
+Administrative privilege should follow actual responsibilities, not job title alone.
+
+I created fictional IT Support and Systems Administrator employees but did not add their ordinary accounts to Domain Admins solely because of their roles.
+
+I would assess required tasks and delegated access, keeping routine employee activity separate from privileged administration.
+
+### 8. Did validation uncover any configuration mistakes?
+
+Yes. Initial departmental memberships were incorrect. I reviewed the assignments, corrected them, and re-verified each group's membership before continuing.
+
+I document that as a configuration-validation correction. It was not an intentionally induced support incident, and the retained screenshot shows the corrected state rather than the original mistake.
+
+---
+
+## 7. Domain Workstation Integration
+
+### 1. What DNS configuration did your Active Directory client need?
+
+The workstation needed to use Northstar's internal DNS service at `192.168.252.10` to resolve the domain and service-discovery records.
+
+Before the change, `NS-W11-01` used VMware DNS at `192.168.252.2`. I changed its IPv4 DNS server while retaining VMware DHCP addressing.
+
+After the change, I validated the DC name, domain, LDAP SRV records, and external name resolution before joining the domain. I did not configure the client to use the DC's loopback address `127.0.0.1`.
+
+### 2. What did you learn when you could ping the DC but could not resolve the domain?
+
+It demonstrated that IP connectivity, DNS resolution, and Active Directory service discovery are separate checks.
+
+The workstation could reach `192.168.252.10`, but its VMware DNS server did not resolve the Northstar domain or LDAP SRV records. Configuring the client to use internal DNS resolved that prerequisite gap.
+
+I recorded this as a pre-join observation, not a deliberately induced domain-join failure.
+
+### 3. How did you verify the workstation's domain join?
+
+In an administrative PowerShell session on `NS-W11-01`, I checked:
+
+```powershell
+Get-ComputerInfo | Select-Object CsName,CsDomain,CsPartOfDomain
+nltest /dsgetdc:ad.northstarsolutions.com
+Test-ComputerSecureChannel -Verbose
+```
+
+The results showed membership in `ad.northstarsolutions.com`, `CsPartOfDomain = True`, successful DC discovery, and a healthy secure channel.
+
+I also checked the computer object in Active Directory and tested a separate Finance domain-user session. Each check validated a different part of the integration.
+
+### 4. What is the workstation-domain secure channel?
+
+It is part of the computer account's trust relationship with the domain. A domain-joined workstation needs more than basic network connectivity to maintain that relationship.
+
+My administrative check on `NS-W11-01` returned `True` and reported the channel in good condition. I used the domain-member check on the workstation, not as a substitute for Domain Controller health validation.
+
+If the check failed, I would investigate the error and context before attempting a trust repair or domain rejoin.
+
+### 5. Where did you place the workstation's computer account?
+
+I moved the enabled `NS-W11-01` computer object to:
+
+```text
+Northstar
+└── Workstations
+    └── Finance
+        └── NS-W11-01
+```
+
+I verified its Distinguished Name and enabled state with `Get-ADComputer` on the server. Domain joining and final OU placement were separate actions. The placement prepares for Finance workstation Group Policy, which is the next phase.
+
+### 6. What is the difference between a local account and a domain account?
+
+A local account belongs to one computer, while a domain account is stored in Active Directory and centrally managed.
+
+For example, `NS-W11-01\labadmin` is a local identity and `NORTHSTAR\ava.chen` is a domain identity. Joining the workstation to the domain did not remove its local accounts.
+
+I use `whoami` to verify the actual account context rather than assuming the visible username identifies the authentication source.
+
+### 7. How did you validate the Finance domain-user session?
+
+I signed in as `NORTHSTAR\ava.chen` and checked the identity, user SID, group token, domain environment variables, and Domain Controller discovery.
+
+The token included `NORTHSTAR\GG-Finance-Users`. It did not show `BUILTIN\Administrators`, and the local Administrators listing did not individually include Ava.
+
+Together those observations support the documented standard-user session; a direct user-membership check alone would not account for privileges inherited through groups. I do not describe these checks as an audit of all resource permissions.
+
+The successful secure-channel result came from the separate administrative session. The command visible at the bottom of the Finance screenshot has no displayed result.
+
+### 8. What would you check if a workstation could not join the domain?
+
+I would establish the symptom and scope, then check:
+
+1. Client IP address, subnet, gateway, and DNS configuration.
+2. Connectivity to the Domain Controller.
+3. Resolution of the domain and relevant AD SRV records.
+4. Domain Controller availability and relevant services.
+5. Time synchronization where relevant.
+6. Credentials and permissions used for the join.
+7. The specific error and relevant Windows logs.
+
+My actual pre-join DNS observation illustrates the first part of this approach. The complete list is how I would investigate a failure, not a claim that I completed every failure scenario in the lab.
+
+---
+
+## 8. Homelab Design and Production Considerations
+
+### 1. How did you configure your Windows Server homelab?
 
 I deployed Windows Server 2025 in VMware Workstation and standardized the server as `NS-DC01`.
 
-Before deploying Active Directory, I inspected the VMware network, identified the subnet, gateway, and DHCP allocation range, and changed the server from DHCP to a predictable static address.
+Before deploying Active Directory, I inspected the VMware network, identified the subnet, gateway, and DHCP allocation range, and configured the server with the static address `192.168.252.10`.
 
 I verified local gateway and external IP connectivity and established a pre-DNS baseline.
 
@@ -329,9 +569,13 @@ I then installed Active Directory Domain Services and DNS Server and promoted `N
 
 After the restart, I validated the domain, forest, Global Catalog, AD DS and DNS services, and internal and external DNS resolution using Windows Server tools and PowerShell.
 
-The next stage is centralized Active Directory administration, including Organizational Units, domain users, security groups, workstation domain integration, and Group Policy.
+I then administered DNS records and reverse resolution, created the OU structure and employee accounts, configured departmental Global Security groups, and practiced a fictional employee identity lifecycle.
 
-## 2. Would you deploy only one Domain Controller in production?
+Finally, I configured the Finance workstation to use internal DNS, joined it to the domain, validated discovery and the secure channel, placed its computer object in the Finance Workstations OU, and checked a standard domain-user session.
+
+The next stage is centralized Group Policy. That phase has not yet started hands-on.
+
+### 2. Would you deploy only one Domain Controller in production?
 
 Not necessarily.
 
@@ -341,7 +585,7 @@ A production environment would evaluate redundancy and availability requirements
 
 I would not describe my single-DC homelab design as production high availability.
 
-## 3. What production practices are you trying to apply in your homelab?
+### 3. What production practices are you trying to apply in your homelab?
 
 I am applying practices such as:
 
@@ -356,3 +600,9 @@ I am applying practices such as:
 - Production-versus-homelab design considerations
 
 I also document limitations rather than presenting a resource-constrained VMware environment as identical to a production enterprise deployment.
+
+### 4. Which troubleshooting activities have you actually completed in these phases?
+
+During Phases 4–5, I corrected an initial departmental membership mistake and observed the client's DNS prerequisite gap before joining the domain. I also completed the controlled Noah Wilson identity-lifecycle exercise.
+
+I have not yet completed an intentionally induced Phase 4–5 fault scenario. Planned account, policy, and access troubleshooting should be described as future work until it is performed and verified.

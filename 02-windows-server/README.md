@@ -4,7 +4,7 @@
 
 Northstar Solutions is expanding its lab environment from standalone Windows workstation administration to centralized Windows infrastructure.
 
-As the assigned junior IT administrator, I am responsible for deploying and configuring the first Windows Server system, establishing reliable server networking, implementing Active Directory Domain Services and DNS, validating the new domain infrastructure, and preparing the environment for centralized user, computer, and policy management.
+As the assigned junior IT administrator, I am responsible for deploying and configuring the first Windows Server system, establishing reliable server networking, implementing Active Directory Domain Services and DNS, administering directory objects, integrating the Finance workstation, and preparing the environment for centralized Group Policy.
 
 ## Server
 
@@ -32,6 +32,16 @@ As the assigned junior IT administrator, I am responsible for deploying and conf
 - Verify internal and external DNS resolution
 - Prepare the environment for centralized identity and workstation administration
 - Document infrastructure configuration and validation evidence
+- Inspect and administer Active Directory DNS records
+- Configure IPv4 reverse DNS and validate PTR resolution
+- Design an Organizational Unit structure for centralized administration
+- Create domain-user identities, directory attributes, and manager relationships
+- Create and validate departmental Global Security groups
+- Practice employee onboarding, transfer, and offboarding administration
+- Configure a Windows 11 client to use internal Active Directory DNS
+- Join the workstation to the Northstar domain
+- Validate Domain Controller discovery and the workstation-domain secure channel
+- Verify domain-user authentication and departmental group membership
 
 ## Completed Work
 
@@ -135,19 +145,161 @@ After AD DS and DNS deployment, the server administration baseline was reviewed 
 - Enabled the inbound `File and Printer Sharing (Echo Request - ICMPv4-In)` rule to support lab connectivity testing and troubleshooting.
 - Reviewed DNS forwarder configuration and confirmed that no explicit forwarders are currently configured.
 
+### DNS Record Administration
+
+The existing Active Directory DNS environment was inspected before additional records were created. Inspected structures included `_msdcs`, `_sites`, `_tcp`, `_udp`, `DomainDnsZones`, and `ForestDnsZones`.
+
+Service Location (`SRV`) records were reviewed to understand how clients discover LDAP, Kerberos, Kerberos password services, and the Global Catalog.
+
+An IPv4 reverse lookup zone was created for the Northstar subnet:
+
+| Setting | Value |
+|---|---|
+| Network | `192.168.252.0/24` |
+| Reverse Zone | `252.168.192.in-addr.arpa` |
+| Zone Type | Active Directory-integrated primary zone |
+| Dynamic Updates | Secure only |
+| Domain Controller PTR | `192.168.252.10` → `ns-dc01.ad.northstarsolutions.com` |
+
+Forward and reverse resolution were validated using DNS-only queries explicitly targeting the local DNS service on `NS-DC01`. The retained output shows the expected A and PTR records in the Answer section.
+
+Temporary A and CNAME records were also created, queried, and removed as an administration exercise. They were not retained as permanent infrastructure. MX record concepts were reviewed without creating a fictional mail server.
+
+### Active Directory Organizational Unit Design
+
+A custom OU hierarchy was created for Northstar-managed directory objects:
+
+```text
+Northstar
+├── Users
+│   ├── Finance
+│   ├── IT
+│   └── Operations
+├── Workstations
+│   ├── Finance
+│   ├── IT
+│   └── Operations
+├── Groups
+├── Service Accounts
+└── Disabled Objects
+```
+
+The design supports administrative organization, future delegation, Group Policy targeting, and identity lifecycle management. It is not intended merely to reproduce an organizational chart.
+
+The `NS-DC01` computer account remained in the default `Domain Controllers` OU. Accidental-deletion protection was enabled on the custom OUs according to the recorded lab work.
+
+### Domain User Administration
+
+Six fictional employee identities were created in their departmental Users OUs:
+
+| Employee | Account | Department | Role |
+|---|---|---|---|
+| Ava Chen | `ava.chen` | Finance | Financial Analyst |
+| Daniel Kim | `daniel.kim` | Finance | Finance Manager |
+| Maya Patel | `maya.patel` | IT | IT Support Technician |
+| Ethan Brooks | `ethan.brooks` | IT | Systems Administrator |
+| Sofia Martinez | `sofia.martinez` | Operations | Operations Coordinator |
+| Lucas Nguyen | `lucas.nguyen` | Operations | Operations Manager |
+
+The accounts were configured with logon identities, title and department attributes, and appropriate OU placement. Initial account setup required a password change at first logon. Temporary passwords are excluded from project documentation.
+
+Manager relationships were configured as:
+
+- Ava Chen → Daniel Kim
+- Maya Patel → Ethan Brooks
+- Sofia Martinez → Lucas Nguyen
+
+PowerShell verification confirmed the enabled accounts, departmental attributes, job titles, and Distinguished Names. Manager relationships and initial password settings are recorded lab actions; they are not displayed in the retained user-verification screenshot.
+
+### Security Group Administration
+
+Three departmental groups were configured with Global scope and Security category:
+
+| Group | Members |
+|---|---|
+| `GG-Finance-Users` | Ava Chen, Daniel Kim |
+| `GG-IT-Users` | Maya Patel, Ethan Brooks |
+| `GG-Operations-Users` | Sofia Martinez, Lucas Nguyen |
+
+This establishes the Accounts → Global Groups portion of AGDLP. Resource-specific Domain Local groups and permissions will be introduced when actual resources such as file shares exist.
+
+Verification identified incorrect initial departmental assignments. The memberships were corrected and re-verified before continuing. This was a configuration-validation correction, not an intentionally induced support incident.
+
+The retained screenshot clearly shows departmental memberships, while a desktop overlay partially obscures the scope/category output. The Global/Security configuration is recorded in the lab notes.
+
+Ordinary IT employee accounts were not added to Domain Admins solely because of their job titles.
+
+### Identity Lifecycle Administration
+
+A separate fictional employee account, `noah.wilson`, was used for onboarding, internal transfer, and offboarding practice.
+
+| Stage | Department / Title | Manager | OU | Departmental Group |
+|---|---|---|---|---|
+| Onboarding | Finance / Finance Assistant | Daniel Kim | `Northstar > Users > Finance` | `GG-Finance-Users` |
+| Internal Transfer | Operations / Operations Analyst | Lucas Nguyen | `Northstar > Users > Operations` | `GG-Operations-Users` |
+| Offboarding | Operations attributes retained | Lucas Nguyen | `Northstar > Disabled Objects` | None |
+
+The transfer required separate changes to directory attributes, manager relationship, OU placement, and security-group membership.
+
+For offboarding, the account was disabled, removed from departmental groups, and moved to `Disabled Objects`. The directory object was retained. PowerShell output confirmed `Enabled = False` and only `Domain Users` in the displayed group-membership results.
+
+This was a controlled administration exercise using a fictional identity, not a real employee offboarding or an unexpected outage.
+
+### Windows 11 Domain Integration
+
+Before the join, `NS-W11-01` was recorded as a standalone `WORKGROUP` computer with `CsPartOfDomain = False`.
+
+| Pre-Join Setting | Value |
+|---|---|
+| IPv4 Address | `192.168.252.128` |
+| Subnet Mask | `255.255.255.0` |
+| Default Gateway | `192.168.252.2` |
+| DHCP Server | `192.168.252.254` |
+| DNS Server | `192.168.252.2` |
+
+The workstation could reach `NS-DC01` by IP but could not resolve the Northstar domain or LDAP SRV records through VMware DNS. This was a pre-join validation observation demonstrating the Active Directory DNS dependency.
+
+The workstation's IPv4 DNS server was changed to `192.168.252.10`, while VMware DHCP addressing was retained. The lab notes record successful resolution of the Domain Controller, the domain, LDAP SRV records, and external names after the change.
+
+`NS-W11-01` was then joined to `ad.northstarsolutions.com`. Post-join validation confirmed:
+
+- `CsPartOfDomain = True` and `CsDomain = ad.northstarsolutions.com`.
+- Domain Controller discovery locating `NS-DC01` at `192.168.252.10`.
+- `Test-ComputerSecureChannel -Verbose` returning `True` in the administrative validation session.
+- An enabled computer object placed in `Northstar > Workstations > Finance`.
+
+### Standard Domain User Authentication
+
+A Finance session was validated as `NORTHSTAR\ava.chen` on `NS-W11-01`.
+
+The retained output shows:
+
+- The authenticated domain identity and user SID.
+- `NORTHSTAR\GG-Finance-Users` in the user's Windows security token.
+- `USERDOMAIN=NORTHSTAR` and `USERDNSDOMAIN=AD.NORTHSTARSOLUTIONS.COM`.
+- Successful Domain Controller discovery.
+- Local Administrators membership with no individual assignment for Ava Chen; the displayed user token also contains no `BUILTIN\Administrators` entry.
+
+These checks support the documented standard-user session and departmental membership. They do not constitute an audit of all resource permissions. Secure-channel success is documented in the separate administrative validation screenshot.
+
 ## Tools and Technologies Used
 
 - Windows Server 2025
+- Windows 11 Pro
 - VMware Workstation
 - Server Manager
 - Active Directory Domain Services
 - DNS Server
+- DNS Manager
 - Active Directory Users and Computers
 - Active Directory Administrative Tools
+- Active Directory PowerShell module
 - PowerShell
 - Command Prompt
 - Windows Server networking
 - VMware VMnet8 / NAT
+- Windows DNS client configuration
+- `nltest`
 
 ## Commands Used
 
@@ -173,17 +325,59 @@ Resolve-DnsName NS-DC01.ad.northstarsolutions.com
 Resolve-DnsName microsoft.com
 ```
 
+### DNS and Directory Validation on NS-DC01
+
+These commands were used during server-side validation. The loopback DNS address refers to the DNS service on `NS-DC01`.
+
+```powershell
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com -Type A -Server 127.0.0.1 -DnsOnly
+Resolve-DnsName 192.168.252.10 -Type PTR -Server 127.0.0.1 -DnsOnly
+Get-ADUser -SearchBase 'OU=Users,OU=Northstar,DC=ad,DC=northstarsolutions,DC=com' -Filter * -Properties Title,Department | Select-Object Name,SamAccountName,Enabled,Department,Title
+Get-ADGroupMember 'GG-Finance-Users' | Select-Object Name,SamAccountName
+Get-ADGroupMember 'GG-IT-Users' | Select-Object Name,SamAccountName
+Get-ADGroupMember 'GG-Operations-Users' | Select-Object Name,SamAccountName
+Get-ADUser noah.wilson -Properties Title,Department | Select-Object Name,Enabled,Title,Department,DistinguishedName
+Get-ADPrincipalGroupMembership noah.wilson | Select-Object Name
+Get-ADComputer NS-W11-01 -Properties DistinguishedName,Enabled | Select-Object Name,Enabled,DistinguishedName
+```
+
+### Domain Integration Validation on NS-W11-01
+
+The domain membership and secure-channel checks were performed in the administrative validation session:
+
+```powershell
+Get-ComputerInfo | Select-Object CsName,CsDomain,CsPartOfDomain
+nltest /dsgetdc:ad.northstarsolutions.com
+Test-ComputerSecureChannel -Verbose
+```
+
+The domain-user session was inspected separately:
+
+```powershell
+whoami
+whoami /user
+whoami /groups
+$env:USERDOMAIN
+$env:USERDNSDOMAIN
+net localgroup Administrators
+nltest /dsgetdc:ad.northstarsolutions.com
+```
+
 ## Documentation
 
 Supporting technical documentation for this server includes:
 
-- Windows Server technical baseline
-- Active Directory and DNS configuration
-- Configuration and validation screenshots
-- Windows Server administration knowledge base
-- Interview preparation based on completed lab work
+- [Windows Server technical baseline and directory configuration](server-baseline.md)
+- [Configuration and validation screenshot guide](screenshots/README.md)
+- [Windows Server administration knowledge base](../knowledge-base/windows-server-administration.md)
+- [Interview preparation based on completed lab work](../interview-prep/windows-server-interview.md)
+- [Windows 11 workstation baseline](../01-windows-workstation/system-baseline.md)
+
+This overview incorporates the Phase 4–5 progress recorded through September 16, 2026. The lab notes include actions without separate screenshots, such as temporary record cleanup and manager configuration. Supporting Markdown files are being updated to this checkpoint separately.
 
 Unexpected project incidents and intentionally created real-world support scenarios will be documented separately and labeled accurately as genuine incidents, simulated support incidents, or troubleshooting exercises.
+
+No intentionally induced Phase 4–5 fault scenario is reported complete. The membership correction and pre-join DNS observation are documented as validation findings; the identity lifecycle is a controlled administration exercise.
 
 ## Production Considerations
 
@@ -234,6 +428,19 @@ Completed areas:
 - VMware Tools verification
 - Time zone verification
 - Windows Update baseline check
+- DNS record inspection and administration
+- Reverse lookup zone configuration and PTR validation
+- Temporary A and CNAME record practice and cleanup
+- Organizational Unit design
+- Domain-user attributes and manager relationships
+- Departmental Global Security groups and membership validation
+- Employee onboarding, transfer, and offboarding exercise
+- Windows 11 internal DNS configuration and domain join
+- Domain Controller discovery and secure-channel validation
+- Active Directory computer-object placement
+- Standard domain-user authentication and group-token validation
 - Infrastructure documentation
 
-The server infrastructure will continue to be developed with Organizational Units, domain users, security groups, Windows 11 domain integration, centralized Group Policy, DHCP, file services, PowerShell administration, security configuration, and infrastructure troubleshooting.
+**Current technical checkpoint: Phases 2–5 are complete. Phase 6 — Centralized Group Policy is next and has not yet started hands-on.**
+
+Later stages will include DHCP, file services and permissions, PowerShell automation, server operations, security, monitoring, and integrated troubleshooting scenarios.
