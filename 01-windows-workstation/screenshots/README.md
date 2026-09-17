@@ -4,7 +4,7 @@
 
 This directory contains selected visual evidence collected while configuring, administering, and troubleshooting `NS-W11-01`, the Windows 11 Pro Finance workstation used in the Northstar Solutions enterprise IT homelab.
 
-The evidence demonstrates key configuration changes, administrative decisions, troubleshooting activities, remediation, and validation performed during the Windows workstation administration module.
+The local images demonstrate configuration changes, administrative decisions, troubleshooting, remediation, and validation from the original workstation module. Later Phase 5–7 workstation evidence is maintained in the server screenshot directory and linked below.
 
 Screenshots are grouped by administrative activity rather than documented individually when several images support the same task.
 
@@ -594,6 +594,135 @@ Inbound and outbound firewall-rule administration was also reviewed through Wind
 
 ---
 
+## 13. Domain Integration and Finance User Validation
+
+### Context
+
+During Phase 5, `NS-W11-01` was joined to `ad.northstarsolutions.com` after its DNS client was configured to use `NS-DC01` at `192.168.252.10`. VMware DHCP addressing was retained at that checkpoint.
+
+### Evidence
+
+| Server-Module Screenshot | Visible Validation |
+|---|---|
+| [12 — Domain membership](../../02-windows-server/screenshots/12-ns-w11-01-domain-membership-verification.png) | Domain membership, DC discovery, and a `True` secure-channel result in an administrative session |
+| [13 — Computer object](../../02-windows-server/screenshots/13-ns-w11-01-ad-computer-object-verification.png) | Enabled workstation object in `Northstar > Workstations > Finance` |
+| [14 — Finance user session](../../02-windows-server/screenshots/14-domain-user-login-and-group-membership.png) | Ava Chen's domain identity, departmental group token, local Administrators listing, and DC discovery |
+
+### Interpretation
+
+`NORTHSTAR\ava.chen` is separate from the original local `finance.user` account. The secure-channel command at the bottom of screenshot 14 has no displayed result; the successful result comes from screenshot 12.
+
+The earlier endpoint-security, hardware, and storage screenshots remain historical assessments. Domain joining did not revalidate all those controls.
+
+### Outcome
+
+Domain membership, computer placement, and a separate Finance domain-user session were validated.
+
+---
+
+## 14. Centralized Group Policy Validation and Simulated Recovery
+
+### Context
+
+Phase 6 introduced computer and Finance user policies, following the earlier Local Group Policy exercise in section 8. **SIM-GPO-001** was a controlled missing Finance user OU link scenario.
+
+### Evidence
+
+| Server-Module Screenshot | Visible Validation |
+|---|---|
+| [15 — Workstation policy](../../02-windows-server/screenshots/15-workstation-baseline-gpo-verification.png) | `Northstar - Workstation Baseline` applied in computer scope; `InactivityTimeoutSecs = 900` |
+| [16 — Finance user policy](../../02-windows-server/screenshots/16-finance-user-gpo-verification.png) | `NORTHSTAR\ava.chen` and applied `Northstar - Finance User Policy` |
+| [17 — Simulated link recovery](../../02-windows-server/screenshots/17-simulated-gpo-link-troubleshooting.png) | Earlier absent applied policy, successful refresh, and restored Finance policy result |
+
+### Interpretation
+
+Computer and user results were checked in separate sessions. The evidence does not specify the exact Finance restriction setting or show a timed workstation lock test.
+
+The notes record identifying and restoring the missing Finance user OU link, followed by restoration of the functional restriction. Screenshot 17 shows the policy results, not the link edit itself.
+
+### Outcome
+
+Computer and user policy application were verified, and the controlled missing-link scenario was resolved.
+
+---
+
+## 15. Windows DHCP Client Migration and Reservation
+
+### Context
+
+In Phase 7, Windows DHCP on `NS-DC01` replaced VMware DHCP. The workstation retained automatic IPv4 addressing and was changed to obtain DNS automatically. VMware NAT remained at `192.168.252.2`.
+
+### Evidence
+
+| Server-Module Screenshot | Visible Validation |
+|---|---|
+| [18 — Server-side lease validation](../../02-windows-server/screenshots/18-windows-dhcp-client-lease-verification.png) | DHCP authorization, scope activation, and active workstation lease at `.50` |
+| [19 — Client configuration](../../02-windows-server/screenshots/19-windows-dhcp-client-configuration-verification.png) | `.50` lease, DHCP enabled, DHCP and DNS server `.10`, gateway `.2`, and Northstar suffix |
+| [22 — DHCP reservation](../../02-windows-server/screenshots/22-dhcp-reservation-verification.png) | `NS-W11-01` reservation at `192.168.252.120` in DHCP Manager |
+| [24 — Final client configuration](../../02-windows-server/screenshots/24-simulated-dhcp-dns-option-recovery.png) | `.120` address, MAC `00-0C-29-5F-31-87`, DHCP enabled, and internal DNS restored after the simulation |
+
+### Interpretation
+
+The initial Windows lease at `.50` and later reservation at `.120` are successive build stages. The client continued to use DHCP; `.120` was not manually assigned on the workstation.
+
+The host-side VMware DHCP change and full scope configuration are recorded in the notes and [server baseline](../../02-windows-server/server-baseline.md). The client images demonstrate the resulting configuration.
+
+### Outcome
+
+The workstation received addressing and internal DNS from Windows DHCP, then obtained its predictable reserved address.
+
+---
+
+## 16. Unexpected Time and Secure-Channel Investigation
+
+### Context
+
+An unexpected secure-channel discrepancy was investigated during Phase 7 validation. It was separate from the intentionally created DHCP DNS-option fault.
+
+### Evidence
+
+| Server-Module Screenshot | Visible Validation |
+|---|---|
+| [20 — Initial investigation](../../02-windows-server/screenshots/20-secure-channel-time-skew-detection.png) | Secure-channel test `False`, domain membership still `True`, successful `nltest` trust-related results, and clock inspection |
+| [21 — Recovery](../../02-windows-server/screenshots/21-time-sync-secure-channel-recovery.png) | Successful time resynchronization, `NS-DC01` as source, closely synchronized offsets, and repeated secure-channel results of `True` |
+
+### Interpretation
+
+The notes identify incorrect workstation time as a contributing condition. The conflicting initial results are retained rather than treating one failed test as proof that the workstation left the domain.
+
+Recovery followed clock correction and resynchronization. The evidence does not prove DHCP caused the issue or establish time as its sole cause. The visible `Pacific Standard Time` identifier describes the workstation, not the server's time-zone setting.
+
+### Outcome
+
+Successful time synchronization and secure-channel validation were recorded after the unexpected lab issue.
+
+---
+
+## 17. Simulated DHCP DNS-Option Failure and Recovery
+
+### Context
+
+**SIM-DHCP-001** deliberately supplied `1.1.1.1` through DHCP Option 006. An earlier attempted fault using VMware's `.2` resolver still resolved internal names according to the notes and did not reproduce the intended failure.
+
+### Evidence
+
+| Server-Module Screenshot | Visible Validation |
+|---|---|
+| [23 — Controlled failure](../../02-windows-server/screenshots/23-simulated-dhcp-dns-option-failure.png) | Reserved `.120` address, public DNS setting, successful external resolution, internal-name failures, and successful direct query to `.10` |
+| [24 — Recovery](../../02-windows-server/screenshots/24-simulated-dhcp-dns-option-recovery.png) | Restored DNS `.10`, DC name resolution and discovery, and a `True` secure-channel result |
+
+### Interpretation
+
+The direct internal query supported isolation to the client's DNS configuration. The notes record restoring Option 006, releasing and renewing the lease, and clearing the DNS cache.
+
+The LDAP service-name query in screenshot 24 omits `-Type SRV` and returns an SOA authority record. It is not an SRV answer; explicit SRV validation is recorded separately in the notes.
+
+### Outcome
+
+The simulated DNS-option fault was resolved while the workstation retained its DHCP reservation. This demonstrates why a valid lease and working external DNS alone do not establish correct Active Directory DNS configuration.
+
+---
+
 ## Evidence Summary
 
 The selected screenshots demonstrate practical administration of `NS-W11-01` across the following areas:
@@ -613,11 +742,23 @@ The selected screenshots demonstrate practical administration of `NS-W11-01` acr
 - NTFS storage administration
 - Microsoft Defender verification
 - Windows Defender Firewall verification
+- Domain membership, DC discovery, and Finance user-session validation
+- Centralized computer and user Group Policy validation
+- Simulated missing Finance GPO link recovery
+- Windows DHCP client migration and reservation
+- Unexpected time issue investigation and secure-channel recovery
+- Simulated DHCP DNS-option failure isolation and recovery
 
 The evidence is intentionally selective.
 
-Not every command or administrative action requires its own screenshot. Detailed technical configuration is maintained in the workstation baseline documents, reusable procedures and concepts are maintained in the Knowledge Base, and actual troubleshooting incidents are maintained separately as incident records.
+Not every command or administrative action requires its own screenshot. Detailed technical configuration is maintained in the workstation baseline documents, reusable procedures and concepts are maintained in the Knowledge Base, and troubleshooting evidence is labeled as genuine project incidents, simulated support incidents, or focused troubleshooting exercises.
+
+See the [workstation baseline](../system-baseline.md) for configuration history and the [server screenshot guide](../../02-windows-server/screenshots/README.md) for the full Phase 5–7 evidence descriptions. The later images remain in the server directory with their existing filenames; this guide links to those originals.
 
 ## Status
 
-**Windows 11 Workstation Screenshot Evidence — Complete**
+**Windows 11 Workstation Screenshot Evidence — Complete through Phase 7 Client Validation**
+
+Sections 1–12 preserve the original workstation evidence. Sections 13–17 reference the later domain, Group Policy, DHCP, and troubleshooting evidence maintained with the server module. Section numbers in this guide are activity numbers, not a new screenshot filename sequence.
+
+Phase 8 — File Services and Permissions is next. The local Finance data-volume evidence does not establish completion of shared-resource permissions or the remaining AGDLP relationships.

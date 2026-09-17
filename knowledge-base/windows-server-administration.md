@@ -1,6 +1,6 @@
 # Windows Server Administration — Knowledge Base
 
-This knowledge base explains concepts practiced through the Phase 5 domain-workstation checkpoint. Lab examples refer to the recorded Northstar environment; planned capabilities are identified separately.
+This knowledge base explains concepts practiced through Phase 7, including centralized Group Policy and Windows DHCP. Lab examples refer to the recorded Northstar environment; planned capabilities are identified separately.
 
 For exact settings and evidence, see the [server baseline](../02-windows-server/server-baseline.md) and [screenshot guide](../02-windows-server/screenshots/README.md).
 
@@ -100,9 +100,88 @@ Before static configuration, `NS-DC01` received:
 
 from VMware's DHCP service.
 
-The observed VMware DHCP allocation range is:
+The original VMware DHCP allocation range was:
 
 `192.168.252.128-192.168.252.254`
+
+During Phase 7, VMware DHCP was disabled and Windows DHCP on `NS-DC01` took over client address allocation. VMware still provides NAT through `192.168.252.2`.
+
+### Lease Process
+
+The initial IPv4 lease exchange is commonly summarized as DORA:
+
+```text
+Discover → Offer → Request → Acknowledge
+```
+
+The client requests configuration and the DHCP server grants a lease. This describes the initial exchange, not every renewal. Northstar verified leases and client configuration; it did not retain a packet capture demonstrating each DORA message. See [Microsoft's DHCP training overview](https://learn.microsoft.com/en-gb/training/modules/deploy-manage-dynamic-host-configuration-protocol/).
+
+### Scope, Exclusion, Reservation, and Static Address
+
+| Term | Meaning | Northstar Example |
+|---|---|---|
+| Scope | Address range and associated configuration managed for a subnet | `192.168.252.20`–`192.168.252.199` |
+| Exclusion | Addresses within the scope withheld from allocation | `.20`–`.49`, planned infrastructure space |
+| Lease | A client address assignment with a duration | Initial workstation lease `.50`, eight-day scope duration |
+| Reservation | A predictable DHCP assignment associated with a client identifier | `.120` for MAC `00-0C-29-5F-31-87` |
+| Manual static address | Address configured directly on the system | `NS-DC01` at `.10` |
+
+A reservation still requires the client to obtain its address through DHCP. An exclusion does not configure an address on a server or create a reservation. See [Microsoft's DHCP scope documentation](https://learn.microsoft.com/en-us/windows-server/networking/technologies/dhcp/dhcp-scopes).
+
+Northstar's client range is `.50`–`.199`, including the `.120` reservation. That reserved address is assigned to the Finance workstation rather than available for unrelated dynamic clients.
+
+### Scope Options and DNS
+
+| Option | Purpose | Northstar Value |
+|---|---|---|
+| 003 — Router | Client default gateway | `192.168.252.2` |
+| 006 — DNS Servers | DNS servers the client should query | `192.168.252.10` |
+| 015 — DNS Domain Name | DNS domain suffix supplied to the client | `ad.northstarsolutions.com` |
+
+These values were configured at scope level. DHCP options can also be configured at other levels; inspect the client's actual configuration as well as the intended scope values. See [Microsoft's DHCP configuration guide](https://learn.microsoft.com/en-us/windows-server/networking/technologies/dhcp/quickstart-install-configure-dhcp-server).
+
+Option 006 configures the client's DNS server address. It does not configure a DNS forwarder on `NS-DC01`. Option 015 also does not join a workstation to Active Directory.
+
+Northstar changed the workstation's DNS configuration from manual to automatic during cutover so validation tested the DHCP-delivered DNS setting.
+
+### Authorization, Scope Activation, and Cutover
+
+Installing the role, authorizing a Windows DHCP server in Active Directory, and activating a scope are separate steps. Microsoft's [DHCP deployment guide](https://learn.microsoft.com/en-us/windows-server/networking/technologies/dhcp/quickstart-install-configure-dhcp-server) describes these configuration tasks.
+
+Northstar's recorded sequence was:
+
+1. Install DHCP and complete post-installation configuration on `NS-DC01`.
+2. Authorize the server and verify it with `Get-DhcpServerInDC`.
+3. Configure the scope, exclusion, and options while leaving the scope inactive.
+4. Disable VMware DHCP on VMnet8 while retaining NAT.
+5. Activate the Windows scope.
+6. Renew the client configuration and check both the lease and delivered options.
+
+Keeping the new scope inactive until VMware DHCP was disabled prevented the two independent configurations from competing during this lab cutover. AD authorization was not used as a substitute for disabling VMware DHCP.
+
+### Administration and Client Validation
+
+On `NS-DC01`, inspect the server and scope with:
+
+```powershell
+Get-DhcpServerInDC
+Get-DhcpServerv4Scope
+Get-DhcpServerv4Lease -ScopeId 192.168.252.0
+Get-DhcpServerv4Reservation -ScopeId 192.168.252.0
+Get-DhcpServerv4OptionValue -ScopeId 192.168.252.0
+```
+
+On the client, `ipconfig /all` identifies the lease address, DHCP server, gateway, DNS server, and suffix. During the controlled cutover and reservation tests, Northstar also used:
+
+```cmd
+ipconfig /release
+ipconfig /renew
+ipconfig /all
+```
+
+Lease release changes connectivity, so use it as a deliberate configuration step rather than a prerequisite for every inspection.
+
+The workstation first received `.50` from Windows DHCP, then `.120` after its reservation was created and the lease renewed. `DHCP Enabled = Yes` remained visible. These are successive observations, not conflicting static-address assignments.
 
 ---
 
@@ -114,7 +193,7 @@ Core infrastructure systems commonly require predictable addressing.
 
 `192.168.252.10`
 
-This address is outside the configured VMware DHCP allocation range.
+This address was outside the original VMware DHCP allocation range and is also outside the current Windows DHCP scope.
 
 The lab uses manual static addressing for the server.
 
@@ -708,7 +787,7 @@ Northstar created Users, Workstations, Groups, Service Accounts, and Disabled Ob
 
 Moving a user to another OU does not by itself change group membership. Updating Department does not automatically move the user. Noah Wilson's transfer exercise required separate changes to attributes, manager, OU, and departmental group.
 
-The OU structure prepares for Group Policy. It does not prove that a new policy has already been created or applied.
+The OU structure supports Group Policy targeting. Phase 6 separately verified applied computer and user policies; the existence of the OU hierarchy alone does not prove policy application.
 
 ---
 
@@ -808,7 +887,7 @@ Noah's exercise used disabling, not an account lockout or deletion. Disabling an
 
 Joining a Windows computer to Active Directory establishes its domain computer identity and trust relationship. It does not delete the computer's local user accounts.
 
-Northstar's recorded transition was:
+Northstar's recorded Phase 5 transition was:
 
 | Check | Before | After |
 |---|---|---|
@@ -820,6 +899,8 @@ Northstar's recorded transition was:
 Before the DNS change, the client could reach the DC by IP but could not resolve the domain or LDAP SRV records. After it was configured to use internal DNS, those lookups succeeded according to the lab notes.
 
 The lesson is to test addressing, name resolution, and service discovery separately. A successful ping alone is not a complete domain-readiness check. This was pre-join validation, not a manufactured domain-join incident.
+
+In Phase 7, Windows DHCP replaced VMware DHCP. The final workstation address is the DHCP reservation `192.168.252.120`, and internal DNS at `192.168.252.10` is now supplied by Option 006. The table above preserves the earlier domain-join checkpoint.
 
 ---
 
@@ -854,7 +935,7 @@ The domain workstation is represented by an enabled computer object at:
 CN=NS-W11-01,OU=Finance,OU=Workstations,OU=Northstar,DC=ad,DC=northstarsolutions,DC=com
 ```
 
-Northstar performed domain joining and final OU placement as separate administrative actions. The resulting location prepares the Finance workstation for future GPO scope.
+Northstar performed domain joining and final OU placement as separate administrative actions. The resulting location supports Finance workstation policy targeting, which was validated separately in Phase 6.
 
 Server-side verification used:
 
@@ -897,11 +978,139 @@ These observations are not an audit of every resource permission. The secure-cha
 
 ---
 
-## Phase 4–5 Learning Checkpoint
+## Group Policy Scope and Validation
 
-Completed work now includes DNS records, reverse resolution, OUs, domain identities, departmental groups, an identity lifecycle, and a domain-joined workstation. No intentionally induced Phase 4–5 fault scenario is reported complete.
+A Group Policy Object contains settings, while its links help determine where those settings apply. GPOs can be linked to sites, domains, and OUs. A GPO existing in the domain does not by itself establish that it applies to a particular user or computer. See [Microsoft's Group Policy overview](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/group-policy/group-policy-overview).
 
-Phase 6 — Centralized Group Policy is next and has not yet started hands-on. Domain Local resource groups, file-service permissions, and automation remain future capabilities. See the [server module overview](../02-windows-server/README.md) for the recorded project status.
+### Computer and User Context
+
+Northstar validated two separate contexts:
+
+| Policy | Context | Recorded Result |
+|---|---|---|
+| `Northstar - Workstation Baseline` | Computer `NS-W11-01` | Applied; `InactivityTimeoutSecs = 900` |
+| `Northstar - Finance User Policy` | User `NORTHSTAR\ava.chen` | Applied in the Finance session |
+
+Computer-scope checks were run in an elevated workstation session:
+
+```powershell
+gpresult /r /scope computer
+gpresult /h C:\gpo-report.html /scope computer
+Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name InactivityTimeoutSecs
+```
+
+User-scope checks were run in Ava's session:
+
+```cmd
+whoami
+gpresult /r /scope user
+```
+
+Check identity before interpreting user results. Running a user-scope query in a different account's session does not demonstrate Ava's applied policies. `gpresult` reports resultant policy information; see [Microsoft's Group Policy Results documentation](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/group-policy/group-policy-modeling-results).
+
+The workstation screenshot verifies the applied GPO and a 900-second registry value. It does not show a timed lock test or the exact GPO link location. The Finance evidence establishes policy application without identifying the exact restriction setting.
+
+### Refresh vs Diagnosis
+
+`gpupdate /force` was used after correcting the Finance policy link. A successful refresh should be followed by applied-policy and functional checks. It does not by itself prove that the intended GPO is in scope. See [Microsoft's policy-application troubleshooting guidance](https://learn.microsoft.com/en-ca/troubleshoot/windows-server/group-policy/applying-group-policy-troubleshooting-guidance).
+
+Northstar's **SIM-GPO-001** followed this sequence:
+
+1. Identify the affected Finance user and missing policy behavior.
+2. Verify that the user remains in the intended OU.
+3. Confirm that the GPO exists and its relevant setting remains enabled.
+4. Inspect `gpresult` and observe the absent applied GPO.
+5. Review scope and identify the missing Finance user OU link.
+6. Restore the link and refresh policy.
+7. Confirm the GPO in user-scope results and retest the restriction.
+
+The missing link was the recorded cause in this controlled scenario. The screenshot shows policy absence and recovery; link restoration and the functional retest are recorded in the notes. This example is not a complete diagnostic checklist for every Group Policy failure.
+
+---
+
+## Troubleshooting DHCP-Delivered DNS
+
+A valid lease establishes address allocation. It does not establish correct internal name resolution, domain discovery, or a healthy secure channel.
+
+In **SIM-DHCP-001**, the client retained its `.120` reservation while Option 006 supplied `1.1.1.1`. External DNS worked, but Northstar names failed. A direct query to the internal DNS server succeeded.
+
+### Compare Configured and Explicit Resolvers
+
+Inspect client configuration first:
+
+```cmd
+ipconfig /all
+```
+
+Then compare the normal lookup path with a query explicitly targeting the internal DNS server:
+
+```powershell
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com -Server 192.168.252.10 -DnsOnly
+Resolve-DnsName _ldap._tcp.dc._msdcs.ad.northstarsolutions.com -Type SRV -Server 192.168.252.10 -DnsOnly
+Resolve-DnsName microsoft.com
+```
+
+The successful direct query, combined with the wrong DNS client setting, isolated the recorded fault to the DHCP-delivered resolver address. It did not indicate that the internal DNS service needed rebuilding.
+
+Northstar restored Option 006 to `.10`, renewed the client's configuration, cleared the DNS cache with `ipconfig /flushdns`, and repeated internal resolution, DC discovery, and secure-channel checks. Cache clearing alone would not correct an incorrect DHCP option.
+
+### Interpret the Actual DNS Answer
+
+When testing service discovery, request `-Type SRV` and inspect the returned record type. Screenshot 24's LDAP service-name query omitted that switch and displayed an SOA record in the Authority section. That output is not an SRV answer. The lab notes separately record explicit SRV validation.
+
+An earlier attempt to reproduce the fault using VMware's `.2` resolver still resolved internal names and SRV queries according to the notes. Preserve that result without inventing a caching or forwarding explanation. A test that does not reproduce the expected failure is still useful evidence.
+
+---
+
+## Windows Time and Secure-Channel Investigation
+
+Time inspection became part of Northstar's troubleshooting when `Test-ComputerSecureChannel` returned `False` despite successful DNS and DC discovery checks.
+
+### Inspect Before Changing Configuration
+
+On the domain workstation, inspect the clock and configured time source:
+
+```powershell
+Get-Date
+Get-TimeZone
+w32tm /query /source
+w32tm /query /status
+w32tm /stripchart /computer:ns-dc01.ad.northstarsolutions.com /samples:5 /dataonly
+```
+
+`/query /source` identifies the selected time source; `/stripchart` measures offsets against the specified target. These answer different questions. After correcting the workstation clock, Northstar used `w32tm /resync` to request synchronization. See [Microsoft's Windows Time tools reference](https://learn.microsoft.com/en-au/windows-server/networking/windows-time-service/windows-time-service-tools-and-settings).
+
+### Preserve Conflicting Results
+
+During the unexpected lab issue:
+
+| Observation | Recorded Result |
+|---|---|
+| `Test-ComputerSecureChannel -Verbose` | Initially `False` |
+| Domain membership | Still `True` |
+| `nltest /sc_verify` and `/sc_query` | `NERR_Success` |
+| DNS and DC discovery | Working |
+| Workstation clock | Incorrect time identified in the notes |
+| After clock correction and synchronization | Secure-channel test returned `True` |
+
+Recovery evidence showed `NS-DC01` as the time source and offsets around 1.7–1.9 milliseconds during the retained samples. The workstation's time-zone ID was `Pacific Standard Time`; this does not establish the server's exact time-zone configuration.
+
+The lesson is to record each result and investigate contributing conditions before making disruptive trust changes. Recovery followed time correction, but the evidence does not prove DHCP caused the issue or establish time as its sole cause. This was an unexpected project incident, distinct from the two controlled simulations.
+
+### Run Tools Where They Are Available
+
+`Get-ADComputer` was not recognized on the workstation because its Active Directory PowerShell tools were unavailable. The query was run on `NS-DC01`, where the tools were installed. A missing local command should be distinguished from a directory service failure.
+
+---
+
+## Phase 7 Learning Checkpoint
+
+Completed work includes DNS records, reverse resolution, OUs, domain identities, departmental groups, an identity lifecycle, domain-client integration, computer and user Group Policy, and Windows DHCP administration.
+
+Phase 6–7 troubleshooting includes the controlled simulations `SIM-GPO-001` and `SIM-DHCP-001`, plus the unexpected workstation time and secure-channel issue. The earlier membership correction and pre-join DNS observation remain validation findings.
+
+Phase 8 — File Services and Permissions is next. Domain Local resource groups, file-service permissions, and automation remain future capabilities. See the [server module overview](../02-windows-server/README.md) for the recorded project status.
 
 ---
 
@@ -914,6 +1123,7 @@ Current homelab limitations include:
 - Single physical host
 - Single Domain Controller
 - Single DNS Server
+- DHCP hosted on the same DC, with no failover partner
 - VMware NAT networking
 - Limited compute resources
 - No infrastructure redundancy

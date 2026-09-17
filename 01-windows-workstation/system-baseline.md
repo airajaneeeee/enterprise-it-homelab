@@ -4,9 +4,9 @@
 
 This document records the technical baseline configuration of `NS-W11-01`, the Windows 11 Pro Finance workstation used in the Northstar Solutions enterprise IT homelab.
 
-The baseline preserves the workstation's original standalone identity, hardware, local accounts, networking, storage, policy, and security observations. A separate domain-integration checkpoint records the later transition into the Northstar Active Directory environment through September 16, 2026.
+The baseline preserves the workstation's original standalone identity, hardware, local accounts, networking, storage, policy, and security observations. Separate checkpoints record Phase 5 domain integration, Phase 6 centralized Group Policy, and Phase 7 Windows DHCP and troubleshooting validation.
 
-Original configuration tables describe the standalone baseline unless identified as part of the later checkpoint. The integration notes do not establish a fresh hardware, storage, update, or endpoint-security assessment.
+Original configuration tables describe the standalone baseline unless identified as part of a later checkpoint. The later notes do not establish a fresh hardware, storage, update, or comprehensive endpoint-security assessment.
 
 ## System Identity
 
@@ -155,7 +155,7 @@ gpresult /r
 rsop.msc
 ```
 
-This local policy exercise introduced standalone Windows policy administration before centralized domain-based Group Policy is implemented later in the Northstar Solutions environment.
+This local policy exercise introduced standalone Windows policy administration before the centralized domain policies documented in the Phase 6 checkpoint below.
 
 ## Storage Configuration
 
@@ -292,7 +292,7 @@ Its verified Distinguished Name is:
 CN=NS-W11-01,OU=Finance,OU=Workstations,OU=Northstar,DC=ad,DC=northstarsolutions,DC=com
 ```
 
-The [server-side computer-object verification](../02-windows-server/screenshots/13-ns-w11-01-ad-computer-object-verification.png) shows both the enabled state and OU placement. This location prepares the Finance workstation for future centralized policy targeting.
+The [server-side computer-object verification](../02-windows-server/screenshots/13-ns-w11-01-ad-computer-object-verification.png) shows both the enabled state and OU placement. This Phase 5 placement preceded the centralized policy validation recorded below.
 
 ### Finance Domain-User Session
 
@@ -329,13 +329,195 @@ The later local Administrators output still includes `labadmin`. The integration
 
 ### Policy and Security Scope
 
-The earlier Remote Desktop password-saving policy was a Local Group Policy exercise. The domain join and OU placement prepare the workstation for Phase 6; new centralized Group Policy work has not yet started hands-on.
+The earlier Remote Desktop password-saving policy was a Local Group Policy exercise. Domain joining and OU placement were completed in Phase 5; centralized policy application was subsequently validated in Phase 6.
 
 The Phase 5 evidence establishes domain membership, workstation trust, and a standard domain-user session. It does not establish a new Defender, firewall, BitLocker, storage, or system-integrity assessment. Those values remain the historical observations recorded above.
 
+## Phase 6 — Centralized Group Policy Checkpoint
+
+### Computer Policy
+
+| Item | Recorded State |
+|---|---|
+| Computer | `NS-W11-01` |
+| Computer OU | `Northstar > Workstations > Finance` |
+| Applied GPO | `Northstar - Workstation Baseline` |
+| Registry Path | `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` |
+| Registry Value | `InactivityTimeoutSecs` |
+| Verified Value | `900` seconds |
+
+Validation in an elevated workstation session used:
+
+```powershell
+Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name InactivityTimeoutSecs
+gpresult /h C:\gpo-report.html /scope computer
+gpresult /r /scope computer
+```
+
+The [computer-policy evidence](../02-windows-server/screenshots/15-workstation-baseline-gpo-verification.png) shows the inactivity value and the named GPO in the applied computer policies, alongside Default Domain Policy and Local Group Policy. It does not display the GPO's exact link location or a timed lock-screen test.
+
+### Finance User Policy
+
+| Item | Recorded State |
+|---|---|
+| User | `NORTHSTAR\ava.chen` |
+| User OU | `Northstar > Users > Finance` |
+| Applied GPO | `Northstar - Finance User Policy` |
+
+The user session was checked separately:
+
+```cmd
+whoami
+gpresult /r /scope user
+```
+
+The [Finance policy evidence](../02-windows-server/screenshots/16-finance-user-gpo-verification.png) confirms the identity, user OU, and applied policy. The exact Finance restriction setting is not specified in the supplied notes or selected screenshot.
+
+### SIM-GPO-001 — Missing Finance User OU Link
+
+This was a controlled simulated support incident. The Finance user remained in the correct OU, and the GPO and its configured setting still existed, but the missing OU link prevented the intended policy from applying.
+
+After the link was restored, `gpupdate /force` completed and user-scope `gpresult` again listed the Finance GPO. The notes also record restoration of the functional restriction.
+
+The [GPO recovery evidence](../02-windows-server/screenshots/17-simulated-gpo-link-troubleshooting.png) shows an absent applied policy followed by successful refresh and policy application. The link edit and functional restriction are recorded in the notes rather than shown directly. The final state includes the restored link.
+
+## Phase 7 — Windows DHCP Client Checkpoint
+
+### Configuration Evolution
+
+Windows DHCP on `NS-DC01` replaced VMware DHCP on VMnet8. The notes record disabling VMware DHCP before activating the Windows scope, while retaining VMware NAT.
+
+The workstation retained automatic IPv4 addressing and was changed from manually configured internal DNS to automatic DNS configuration.
+
+| Setting | Before Migration | Initial Windows DHCP Lease | Final Reservation |
+|---|---|---|---|
+| IPv4 Address | `192.168.252.128` | `192.168.252.50` | `192.168.252.120` |
+| Subnet Mask | `255.255.255.0` | `255.255.255.0` | `255.255.255.0` |
+| Default Gateway | `192.168.252.2` | `192.168.252.2` | `192.168.252.2` |
+| DHCP Server | `192.168.252.254` | `192.168.252.10` | `192.168.252.10` |
+| IPv4 DNS Server | `192.168.252.10`, manual | `192.168.252.10`, DHCP | `192.168.252.10`, DHCP |
+| DHCP Enabled | Yes | Yes | Yes |
+
+The [initial Windows DHCP client evidence](../02-windows-server/screenshots/19-windows-dhcp-client-configuration-verification.png) shows `.50` after lease release and renewal. That address is a historical lease observation, not the final reservation.
+
+### Final Client Configuration
+
+| Setting | Recorded State |
+|---|---|
+| Adapter | `Ethernet0` |
+| Adapter Description | Intel(R) 82574L Gigabit Network Connection |
+| MAC Address | `00-0C-29-5F-31-87` |
+| IPv4 Address | `192.168.252.120` |
+| Subnet Mask | `255.255.255.0` |
+| Default Gateway | `192.168.252.2` |
+| DHCP Server | `192.168.252.10` |
+| DNS Server | `192.168.252.10` |
+| Connection-specific DNS Suffix | `ad.northstarsolutions.com` |
+| DHCP Enabled | Yes |
+| Address Assignment | Windows DHCP reservation |
+
+The reservation is named `NS-W11-01` and associates `.120` with the recorded MAC address. The notes specify a DHCP-only reservation with description `Finance domain workstation`. The [DHCP Manager evidence](../02-windows-server/screenshots/22-dhcp-reservation-verification.png) shows its name and address; it does not display those additional reservation properties.
+
+The [final client evidence](../02-windows-server/screenshots/24-simulated-dhcp-dns-option-recovery.png) shows the table's client values after the DNS-option simulation was resolved. The workstation continues to obtain its address automatically; this is not a manual static configuration.
+
+### Scope Options and Client Validation
+
+The notes record these options on the `Northstar Client Network` scope:
+
+| Option | Value |
+|---|---|
+| 003 — Router | `192.168.252.2` |
+| 006 — DNS Servers | `192.168.252.10` |
+| 015 — DNS Domain Name | `ad.northstarsolutions.com` |
+
+The scope uses an eight-day lease duration. Full scope, exclusion, and authorization details are maintained in the [server baseline](../02-windows-server/server-baseline.md).
+
+During cutover, reservation validation, and simulated DNS-option recovery, client commands included:
+
+```cmd
+ipconfig /release
+ipconfig /renew
+ipconfig /all
+```
+
+DNS cache clearing with `ipconfig /flushdns` was also used during troubleshooting. These were deliberate configuration and recovery steps, not prerequisites for every inspection.
+
+The notes record checks of internal DNS, LDAP SRV discovery, and external resolution:
+
+```powershell
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com
+Resolve-DnsName _ldap._tcp.dc._msdcs.ad.northstarsolutions.com -Type SRV
+Resolve-DnsName microsoft.com
+nltest /dsgetdc:ad.northstarsolutions.com
+```
+
+## Phase 7 — Troubleshooting and Recovery State
+
+### Unexpected Workstation Time Issue
+
+The [initial investigation evidence](../02-windows-server/screenshots/20-secure-channel-time-skew-detection.png) records conflicting results:
+
+| Check | Observed Result |
+|---|---|
+| `Test-ComputerSecureChannel -Verbose` | `False`; reported a broken secure channel |
+| Domain Membership | `CsPartOfDomain = True` |
+| `nltest /sc_verify` | `NERR_Success` |
+| `nltest /sc_query` | `NERR_Success` |
+| External DNS | Successful |
+| Workstation Time Zone | `Pacific Standard Time` |
+
+The notes additionally record working internal DNS and DC discovery. Incorrect workstation time was identified as a contributing condition. The results do not establish that the workstation had left the domain or that DHCP caused the discrepancy.
+
+Time inspection and recovery used:
+
+```powershell
+Get-Date
+Get-TimeZone
+w32tm /query /source
+w32tm /query /status
+w32tm /resync
+w32tm /stripchart /computer:ns-dc01.ad.northstarsolutions.com /samples:5 /dataonly
+Test-ComputerSecureChannel -Verbose
+```
+
+Resynchronization followed clock correction. The [recovery evidence](../02-windows-server/screenshots/21-time-sync-secure-channel-recovery.png) shows `NS-DC01.ad.northstarsolutions.com` as the time source, successful resynchronization, offset samples around 1.7–1.9 milliseconds, and two secure-channel results returning `True`.
+
+This was an unexpected lab incident. Recovery followed time correction, but the retained evidence does not isolate time as the sole cause. These observations describe the workstation; they do not establish the DC's exact time-zone setting.
+
+The notes also record `Get-ADComputer` being unavailable because the workstation's Active Directory PowerShell tools were not installed. The query was performed on `NS-DC01`, where the enabled Finance workstation object was verified. The missing local command was a tooling limitation rather than evidence of an Active Directory outage.
+
+### SIM-DHCP-001 — Incorrect DNS Option
+
+This was a controlled simulated support incident. The first attempt used VMware's `.2` resolver, but internal names and LDAP SRV queries still resolved according to the notes. That result did not reproduce the intended fault and is preserved separately from the earlier pre-join DNS failure.
+
+The fault was then reproduced by setting DHCP Option 006 to `1.1.1.1` and renewing the client's configuration.
+
+| Check During Simulation | Recorded Result |
+|---|---|
+| Reserved Address | `192.168.252.120` retained |
+| DHCP Server | `192.168.252.10` |
+| Default Gateway | `192.168.252.2` |
+| DNS Server | `1.1.1.1` |
+| DC Reachability by IP | Successful, recorded in the notes |
+| External DNS | Successful |
+| Internal DC Name | Failed through the configured resolver |
+| Direct DC Name Query to `.10` | Successful |
+
+The [failure evidence](../02-windows-server/screenshots/23-simulated-dhcp-dns-option-failure.png) shows the client configuration and contrasting DNS results. The direct query used:
+
+```powershell
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com -Server 192.168.252.10 -DnsOnly
+```
+
+Option 006 was restored to `.10`. After lease release and renewal and DNS cache clearing, the final client evidence shows restored internal DNS, successful DC name resolution and discovery, and `Test-ComputerSecureChannel -Verbose` returning `True`.
+
+The LDAP service-name queries visible in screenshots 23–24 omit `-Type SRV`. The recovery query returns an SOA authority record, not an SRV answer. Explicit SRV validation is recorded separately in the notes.
+
+The final baseline retains the `.120` reservation and internal DNS server `.10`; the temporary public resolver is not part of the final configuration.
+
 ## Baseline Status
 
-**Windows 11 Workstation Baseline — Complete through Domain Integration**
+**Windows 11 Workstation Baseline — Complete through Phase 7 Client Validation**
 
 The documented standalone workstation baseline includes:
 
@@ -359,6 +541,16 @@ The later domain-integration checkpoint adds:
 - Finance domain-user authentication and departmental token membership
 - Standard-user session checks
 
-`NS-W11-01` is now the domain-joined Northstar Finance workstation. Phase 6 — Centralized Group Policy is next; later work includes networking, security hardening, and further enterprise administration.
+The Phase 6–7 checkpoints add:
+
+- Computer GPO application and the 900-second inactivity value
+- Finance user-policy application and simulated missing-link recovery
+- Migration from VMware DHCP to Windows DHCP
+- Automatic internal DNS configuration and client option validation
+- DHCP reservation at `192.168.252.120`
+- Unexpected time issue investigation and secure-channel recovery
+- Simulated incorrect DHCP DNS-option diagnosis and recovery
+
+`NS-W11-01` is the domain-joined Northstar Finance workstation with validated centralized policies and Windows DHCP configuration. Phase 8 — File Services and Permissions is next. Shared-resource permissions and the remaining AGDLP relationships are future work; the original local `Finance-Data (F:)` volume does not establish completion of that phase.
 
 Related documentation: [workstation module](README.md), [server baseline](../02-windows-server/server-baseline.md), and [server screenshot guide](../02-windows-server/screenshots/README.md).

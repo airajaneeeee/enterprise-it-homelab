@@ -2,7 +2,7 @@
 
 This document contains interview questions and sample answers based on the hands-on Windows 11 administration and troubleshooting work completed in the Northstar Solutions enterprise IT homelab.
 
-The examples cover the original standalone workstation module and the later Phase 5 domain integration. Hypothetical troubleshooting answers describe an approach, not additional incidents claimed as completed. See the [workstation baseline](../01-windows-workstation/system-baseline.md) for configuration history and evidence.
+The examples cover the original standalone workstation module, Phase 5 domain integration, Phase 6 centralized Group Policy, and Phase 7 Windows DHCP and troubleshooting. Hypothetical troubleshooting answers describe an approach, not additional incidents claimed as completed. See the [workstation baseline](../01-windows-workstation/system-baseline.md) for configuration history and evidence.
 
 ---
 
@@ -448,13 +448,13 @@ In my Windows 11 homelab, I practiced this with the Print Spooler and verified i
 
 ---
 
-## 5. Local Group Policy
+## 5. Local and Centralized Group Policy
 
 ### 1. What is Group Policy?
 
 Group Policy is a Windows administration technology used to configure and enforce settings for computers and users.
 
-I practiced with Local Group Policy on the standalone Windows 11 workstation. The workstation is now domain joined and placed in the Finance Workstations OU, but new centralized Group Policy work has not yet started hands-on. That is the next phase.
+I first practiced with Local Group Policy on the standalone workstation. After joining the domain, I validated the centralized `Northstar - Workstation Baseline` computer policy and `Northstar - Finance User Policy` in Phase 6.
 
 ### 2. What is the difference between Computer Configuration and User Configuration?
 
@@ -467,6 +467,46 @@ The appropriate area depends on whether the setting should follow the computer o
 I have used `gpedit.msc` to configure Local Group Policy, `gpupdate /force` to request policy processing, `gpresult /r` to inspect Group Policy results, and `rsop.msc` to examine Resultant Set of Policy information.
 
 In my homelab, I configured a security policy preventing Remote Desktop passwords from being saved.
+
+For the later domain policies, I checked computer and user results separately with `gpresult /r /scope computer` and `gpresult /r /scope user`, and generated a computer-scope HTML report.
+
+### 4. How did you verify the workstation baseline GPO?
+
+In an elevated session on `NS-W11-01`, I checked that `Northstar - Workstation Baseline` appeared in computer-scope results and inspected its inactivity value:
+
+```powershell
+gpresult /r /scope computer
+Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name InactivityTimeoutSecs
+```
+
+The registry query returned `900` seconds. My screenshot supports the applied GPO and setting value; it does not show a timed lock-screen test.
+
+### 5. How did you verify the Finance user policy?
+
+I checked the actual user context and applied user policies in Ava Chen's session:
+
+```cmd
+whoami
+gpresult /r /scope user
+```
+
+The results identified `NORTHSTAR\ava.chen` and listed `Northstar - Finance User Policy`. I kept this separate from the elevated computer-policy check so the results described the intended user.
+
+The selected evidence does not identify the exact Finance restriction setting, so I describe the policy application that I can support.
+
+### 6. Describe the simulated Group Policy issue you investigated.
+
+In **SIM-GPO-001**, the Finance policy stopped applying because its Finance user OU link was missing. This was a controlled support simulation.
+
+I confirmed that the user remained in the correct OU, the GPO existed, and its configured setting remained enabled. The GPO was absent from the applied results, which led to the scope and link investigation.
+
+After the link was restored, I refreshed policy and verified that the Finance GPO appeared in user-scope results again. My notes also record restoration of the functional restriction. The screenshot shows policy absence and recovery rather than the link edit itself.
+
+### 7. Does a successful gpupdate prove that the intended policy applies?
+
+I would still check `gpresult` and the affected setting or behavior.
+
+In my simulated incident, the missing link needed correction before refreshing policy. Repeatedly running `gpupdate` would not address that scope problem.
 
 ---
 
@@ -634,6 +674,8 @@ I then joined `ad.northstarsolutions.com`, verified membership and the secure ch
 
 I also validated a separate domain-user session as Ava Chen. These steps extended the original standalone workstation work; they did not require rebuilding the workstation.
 
+That was the Phase 5 configuration. In Phase 7, I migrated the client to Windows DHCP with a `.120` reservation and automatically supplied internal DNS at `.10`.
+
 ### 2. Why was reaching the Domain Controller by IP insufficient?
 
 The workstation could reach the DC at `192.168.252.10`, but the lab notes record failed domain and LDAP SRV lookups through VMware DNS before the change.
@@ -674,13 +716,13 @@ The successful secure-channel test came from the separate administrative session
 
 No. The domain join and Finance OU placement prepare the workstation for policy targeting.
 
-My completed policy exercise was the earlier local setting preventing Remote Desktop passwords from being saved. Creating and validating new centralized Group Policy is Phase 6 and has not yet started hands-on.
+I separately completed centralized policy validation in Phase 6 using computer- and user-scope results. That is distinct from both the domain join and the earlier local setting preventing Remote Desktop passwords from being saved.
 
 ### 7. What would you investigate if the domain workstation could not authenticate?
 
 I would first clarify the error, affected identity, timing, and scope. I would then check the relevant network and DNS configuration, DC discovery, account state, time synchronization where relevant, and workstation trust, using logs and the actual error to guide the investigation.
 
-I would not immediately disable the firewall, reset trust, or rejoin the domain. My lab demonstrated healthy integration and a DNS prerequisite observation; a deliberately induced domain-authentication failure remains future practice.
+I would not immediately disable the firewall, reset trust, or rejoin the domain. My later Phase 7 work included a simulated incorrect DNS option and an unexpected time and secure-channel discrepancy. Those examples inform this approach, but they do not demonstrate every possible authentication failure.
 
 ### 8. Did the domain join revalidate the entire endpoint baseline?
 
@@ -689,3 +731,136 @@ No. The Phase 5 checks covered domain integration and the user session.
 The earlier RAM, storage, Defender, firewall, BitLocker, and system-integrity observations retain their original scope. I would verify those settings again when needed rather than presenting the domain join as proof that every endpoint control was reassessed.
 
 For directory administration and deeper DNS questions, see the [server interview preparation](windows-server-interview.md). Client-side concepts are also covered in the [Windows 11 knowledge base](../knowledge-base/windows-11-administration.md).
+
+---
+
+## 10. Windows DHCP Client Validation
+
+### 1. What changed on the workstation during the DHCP migration?
+
+Before migration, the workstation used VMware DHCP at `192.168.252.254`, with internal DNS `.10` configured manually.
+
+I retained automatic IPv4 addressing and changed DNS to automatic. After VMware DHCP was disabled and the Windows scope activated, I released and renewed the client lease.
+
+The first Windows DHCP lease was `192.168.252.50`, with `192.168.252.10` as both DHCP and DNS server. The gateway remained VMware NAT at `192.168.252.2`.
+
+### 2. What is the workstation's final network configuration?
+
+| Setting | Recorded Value |
+|---|---|
+| IPv4 Address | `192.168.252.120` |
+| Subnet Mask | `255.255.255.0` |
+| Default Gateway | `192.168.252.2` |
+| DHCP Server | `192.168.252.10` |
+| DNS Server | `192.168.252.10` |
+| Connection-specific DNS Suffix | `ad.northstarsolutions.com` |
+| DHCP Enabled | Yes |
+
+The final address comes from a DHCP reservation. The earlier `.128` VMware lease and `.50` Windows lease remain recorded as historical stages.
+
+### 3. How is a reservation different from a static address configured on the client?
+
+The reservation associates `.120` with the workstation's MAC address, `00-0C-29-5F-31-87`, on the DHCP server. The workstation still obtains its configuration automatically and shows `DHCP Enabled = Yes`.
+
+I did not manually assign `.120` on the workstation. The DC's `.10` address, by comparison, is manually configured on the server.
+
+### 4. Why did you change DNS to automatic during the migration?
+
+The workstation previously had internal DNS configured manually. I changed it to automatic so I could verify that Windows DHCP Option 006 delivered the intended DNS server.
+
+I then used `ipconfig /all` to verify the client's actual settings, including the DHCP server, DNS server, gateway, and suffix. A valid lease alone would not confirm that DNS was correctly configured.
+
+### 5. Can Internet access work while internal Active Directory DNS fails?
+
+Yes. In **SIM-DHCP-001**, I deliberately changed Option 006 to `1.1.1.1`.
+
+The workstation kept its `.120` reservation and could reach the DC by IP. External DNS worked, but internal Northstar names failed. I treated addressing, external resolution, and internal resolution as separate checks.
+
+### 6. How did you isolate and correct that simulated DNS problem?
+
+I inspected `ipconfig /all` and compared an ordinary lookup with a query explicitly targeting the internal DNS server:
+
+```powershell
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com -Server 192.168.252.10 -DnsOnly
+```
+
+The direct query succeeded, supporting the diagnosis that the client's DHCP-delivered resolver address was wrong.
+
+I restored Option 006 to `.10`, renewed the lease, cleared the DNS cache, and checked internal resolution, DC discovery, and the secure channel again. Clearing the cache alone would not have fixed the incorrect option.
+
+### 7. What happened when the first attempted DNS fault did not fail?
+
+The first test used VMware's `.2` resolver. Internal names and LDAP SRV queries still resolved according to my notes, so it did not reproduce the intended fault.
+
+I recorded that result and used `1.1.1.1` to reproduce the failure. I did not invent a forwarding or caching explanation, or rewrite the separate Phase 5 pre-join DNS failure to match this later observation.
+
+### 8. How do you avoid overstating a DNS validation result?
+
+I check the returned record type against what I intended to test.
+
+The recovery screenshot's LDAP service-name query omitted `-Type SRV` and returned an SOA record in the Authority section. I do not describe that output as a successful SRV answer. My notes separately record explicit SRV validation using:
+
+```powershell
+Resolve-DnsName _ldap._tcp.dc._msdcs.ad.northstarsolutions.com -Type SRV
+```
+
+---
+
+## 11. Workstation Time and Secure-Channel Troubleshooting
+
+### 1. What unexpected issue did you investigate during Phase 7?
+
+`Test-ComputerSecureChannel -Verbose` returned `False`, while the workstation still reported domain membership and DNS and DC discovery worked. The `nltest /sc_verify` and `/sc_query` results reported `NERR_Success`.
+
+I kept those conflicting results in the record and investigated further. Incorrect workstation time was identified as a contributing condition. This was an unexpected lab incident, separate from the simulated DNS-option fault.
+
+### 2. Which tools did you use to inspect time synchronization?
+
+On the workstation, I used:
+
+```powershell
+Get-Date
+Get-TimeZone
+w32tm /query /source
+w32tm /query /status
+w32tm /stripchart /computer:ns-dc01.ad.northstarsolutions.com /samples:5 /dataonly
+```
+
+These checks let me inspect the clock, time-zone setting, selected source, and measured offset against the DC. The workstation time-zone ID was `Pacific Standard Time`.
+
+### 3. How did you verify recovery?
+
+After correcting the workstation clock, I used `w32tm /resync` and repeated the validation.
+
+The recovery output showed `NS-DC01` as the time source, offsets around 1.7–1.9 milliseconds during the retained samples, and repeated secure-channel tests returning `True`.
+
+Recovery followed time correction. I do not claim that DHCP caused the issue or that the evidence isolated time as its sole cause.
+
+### 4. Did a failed secure-channel test mean you immediately needed to rejoin the domain?
+
+I did not treat the first failed test as a complete diagnosis. I compared membership, DNS, DC discovery, other trust-related results, and time before deciding what needed correction.
+
+The differing results made it especially important to preserve the evidence and verify recovery rather than automatically reset trust or rebuild the workstation's domain relationship.
+
+### 5. What did you do when Get-ADComputer was not recognized?
+
+The workstation did not have the Active Directory PowerShell tools installed. I ran the query on `NS-DC01`, where those tools were available, and verified the enabled computer object in the Finance Workstations OU.
+
+I distinguished a missing local command from an unavailable directory service.
+
+---
+
+## 12. Explaining Project Scope and Evidence
+
+### 1. How do you distinguish the different troubleshooting activities?
+
+I label the activity according to what happened. `SIM-GPO-001` and `SIM-DHCP-001` were intentionally created support simulations. The Phase 7 time issue was unexpected. The earlier pre-join DNS observation was a prerequisite validation finding.
+
+I also distinguish what a screenshot shows from actions recorded only in the lab notes, rather than presenting every documented action as visible evidence.
+
+### 2. What is the next phase, and what have you not implemented yet?
+
+Phase 8 — File Services and Permissions is next. The workstation is domain joined, has validated computer and Finance user policies, and uses Windows DHCP with a reservation.
+
+Shared-resource permissions and the remaining AGDLP relationships are future work. The original local `Finance-Data (F:)` volume does not establish completion of centralized file services or resource-access testing.

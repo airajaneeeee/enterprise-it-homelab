@@ -1,6 +1,6 @@
 # Windows 11 Administration — Knowledge Base
 
-This document covers concepts from the standalone workstation module and the later Phase 5 domain integration. Historical examples remain associated with the stage in which they were observed. See the [workstation baseline](../01-windows-workstation/system-baseline.md) for configuration history and validation evidence.
+This document covers concepts from the standalone workstation module, Phase 5 domain integration, Phase 6 centralized Group Policy, and Phase 7 Windows DHCP and troubleshooting. Historical examples remain associated with the stage in which they were observed. See the [workstation baseline](../01-windows-workstation/system-baseline.md) for configuration history and validation evidence.
 
 ## Computer Name / Hostname
 
@@ -784,7 +784,47 @@ I also practiced using:
 
 This provided hands-on experience configuring and investigating local Windows policy.
 
-This was Local Group Policy work. The later domain join and Finance OU placement prepare for centralized Group Policy, which has not yet started hands-on at the Phase 5 checkpoint.
+This was Local Group Policy work. Domain joining and Finance OU placement followed in Phase 5, and centralized computer and user policies were validated in Phase 6.
+
+## Centralized Group Policy on the Workstation
+
+### Check Computer and User Policy Separately
+
+Northstar validated two policies in different contexts:
+
+| Policy | Validation Context | Recorded Result |
+|---|---|---|
+| `Northstar - Workstation Baseline` | Elevated session on `NS-W11-01`; computer scope | Applied; inactivity value `900` seconds |
+| `Northstar - Finance User Policy` | `NORTHSTAR\ava.chen` session; user scope | Applied Finance GPO |
+
+Computer-scope checks used:
+
+```powershell
+gpresult /r /scope computer
+gpresult /h C:\gpo-report.html /scope computer
+Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name InactivityTimeoutSecs
+```
+
+User-scope checks used:
+
+```cmd
+whoami
+gpresult /r /scope user
+```
+
+Confirm the session identity before interpreting user results. Checking a different administrator's user context does not establish which policies applied to Ava. For the tool's role in inspecting resultant policy, see [Microsoft's Group Policy Results documentation](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/group-policy/group-policy-modeling-results).
+
+The retained evidence verifies the workstation registry value and applied GPOs. It does not show a timed lock test or specify the exact Finance restriction setting.
+
+### Refresh and Verify After a Scope Correction
+
+In **SIM-GPO-001**, the Finance policy was absent from user-scope results even though the user remained in the correct OU and the GPO and configured setting still existed. The notes identify a missing Finance user OU link.
+
+After the link was restored, `gpupdate /force` completed and the Finance policy appeared in `gpresult` again. The notes also record restoration of the functional restriction.
+
+The client-side lesson is to capture identity and applied-policy results, then investigate scope with the domain administrator. A refresh message alone does not establish that the intended policy applies. Microsoft's [policy-application troubleshooting guidance](https://learn.microsoft.com/en-ca/troubleshoot/windows-server/group-policy/applying-group-policy-troubleshooting-guidance) also distinguishes refreshing policy from inspecting results.
+
+This was a controlled support simulation. Its [retained screenshot](../02-windows-server/screenshots/17-simulated-gpo-link-troubleshooting.png) shows policy absence and recovery, while the link edit is recorded in the notes.
 
 ## Windows Network Troubleshooting Basics
 
@@ -860,6 +900,70 @@ Therefore:
 
 Understanding which network function is failing is more important than simply running a collection of troubleshooting commands.
 
+### Windows DHCP Client Configuration
+
+Phase 7 replaced VMware DHCP with Windows DHCP on `NS-DC01`, while VMware NAT remained at `192.168.252.2`. The workstation retained automatic IPv4 addressing and was changed to obtain DNS automatically.
+
+| Checkpoint | Workstation Address | DHCP Server | DNS Configuration |
+|---|---|---|---|
+| Before migration | `192.168.252.128` | `192.168.252.254` | Internal `.10`, manually configured |
+| Initial Windows lease | `192.168.252.50` | `192.168.252.10` | Internal `.10`, supplied by DHCP |
+| Final reservation | `192.168.252.120` | `192.168.252.10` | Internal `.10`, supplied by DHCP |
+
+The gateway remained `.2`, and Windows DHCP supplied the connection-specific suffix `ad.northstarsolutions.com`. These are successive configuration states; the earlier `.128` and `.50` observations should not be rewritten as `.120`.
+
+### Reservation vs Manual Static Address
+
+The workstation's reservation associates `.120` with MAC address `00-0C-29-5F-31-87`. The client still shows `DHCP Enabled = Yes`.
+
+A reservation provides a predictable DHCP assignment. A manually configured static address is set directly on the system, as with `NS-DC01` at `.10`. See [Microsoft's DHCP scope and reservation documentation](https://learn.microsoft.com/en-us/windows-server/networking/technologies/dhcp/dhcp-scopes).
+
+After the reservation was created, the workstation released and renewed its lease. Client-side confirmation checked the address, MAC, DHCP-enabled state, DHCP server, gateway, and DNS server together.
+
+### DHCP Options vs DNS Forwarders
+
+Northstar's client received:
+
+| Option | Client Setting | Value |
+|---|---|---|
+| 003 | Default gateway | `192.168.252.2` |
+| 006 | DNS server | `192.168.252.10` |
+| 015 | DNS domain suffix | `ad.northstarsolutions.com` |
+
+Option 006 tells the client which DNS server to query; it does not configure a forwarder on the DNS Server service. Configuring the client for automatic DNS was necessary to test the DHCP-delivered setting instead of retaining the earlier manual value.
+
+Inspect the actual client configuration with `ipconfig /all` after a change. A valid address alone does not verify the DNS option or successful domain discovery. Server-side scope and option administration is covered in the [Windows Server knowledge base](windows-server-administration.md).
+
+### Scenario — Incorrect DHCP DNS Option
+
+**SIM-DHCP-001** deliberately supplied `1.1.1.1` through Option 006. The client kept its `.120` reservation, could reach the DC by IP, and resolved external names, but Northstar names failed.
+
+The investigation compared normal resolution with a query explicitly targeting the internal server:
+
+```powershell
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com -Server 192.168.252.10 -DnsOnly
+Resolve-DnsName microsoft.com
+```
+
+The direct internal query succeeded. Combined with the incorrect DNS setting visible in `ipconfig /all`, this isolated the recorded fault to the DHCP-delivered resolver address.
+
+Option 006 was restored to `.10`, the client released and renewed its lease, and the DNS cache was cleared. Internal resolution, DC discovery, and secure-channel validation then succeeded. Clearing the cache alone would not have corrected the wrong DHCP option.
+
+The first attempted fault used VMware's `.2` resolver, but internal names and LDAP SRV queries still resolved according to the notes. That later successful test is preserved separately from the Phase 5 pre-join failure. No unverified caching or forwarding explanation is assigned to it.
+
+### Verify the DNS Record Type
+
+An explicit LDAP service-discovery check uses:
+
+```powershell
+Resolve-DnsName _ldap._tcp.dc._msdcs.ad.northstarsolutions.com -Type SRV
+```
+
+The recovery screenshot's service-name query omitted `-Type SRV` and returned an SOA record in the Authority section. That output is not an SRV answer. The notes separately record explicit SRV validation.
+
+Compare the requested record type and returned data with the question being tested. The [failure](../02-windows-server/screenshots/23-simulated-dhcp-dns-option-failure.png) and [recovery](../02-windows-server/screenshots/24-simulated-dhcp-dns-option-recovery.png) evidence supports the DNS configuration change and the displayed validation results.
+
 ## Domain-Joined Workstation Administration
 
 ### Local and Domain Identities
@@ -878,7 +982,7 @@ The domain identity is not a renamed or converted version of the local Finance a
 
 Before joining the domain, Northstar's workstation could reach the DC by IP address but could not resolve the domain or LDAP SRV records through VMware DNS, according to the lab notes.
 
-The workstation retained VMware DHCP addressing while its IPv4 DNS server changed:
+At the Phase 5 checkpoint, the workstation retained VMware DHCP addressing while its IPv4 DNS server changed:
 
 ```text
 Before: 192.168.252.2  — VMware DNS
@@ -888,6 +992,8 @@ After:  192.168.252.10 — NS-DC01 internal DNS
 The DC's loopback address `127.0.0.1` belongs to the DC's own DNS-client configuration. It is not the DNS address used by the workstation to contact the DC.
 
 The lesson is to distinguish basic IP connectivity from DNS resolution and AD service discovery. The pre-join observation was a prerequisite configuration finding, not an intentionally induced support incident.
+
+Phase 7 later moved addressing and DNS configuration to Windows DHCP. The final client uses the `.120` reservation and internal DNS at `.10`; the original join sequence remains historical.
 
 ### Validate Membership, Discovery, and Trust Separately
 
@@ -926,9 +1032,9 @@ Together these observations support the recorded standard-user session. They are
 
 The secure-channel command visible at the bottom of the [Finance session screenshot](../02-windows-server/screenshots/14-domain-user-login-and-group-membership.png) has no displayed result. Use the separate administrative evidence for the successful trust check.
 
-### Computer Placement and Future Policy
+### Computer Placement and Policy Validation
 
-The enabled workstation computer object was placed in `Northstar > Workstations > Finance`. This prepares the computer for appropriate policy scope; it does not demonstrate that a new domain GPO has been deployed or applied.
+The enabled workstation computer object was placed in `Northstar > Workstations > Finance`. That location supports policy targeting, while the Phase 6 `gpresult` checks separately verified policy application. OU placement alone does not demonstrate an applied GPO.
 
 Server-side directory concepts, group management, and further command explanations are maintained in the [Windows Server knowledge base](windows-server-administration.md). This workstation section focuses on the client-side checks.
 
@@ -937,6 +1043,42 @@ Server-side directory concepts, group management, and further command explanatio
 The original workstation baseline records 8 GB RAM and VMware DNS. The domain-integration checkpoint records the later DNS change without rewriting those earlier observations. A different RAM allocation mentioned in later planning notes remains unconfirmed.
 
 A successful domain join does not revalidate storage, Defender, firewall, BitLocker, or system integrity. Those assessments retain their original scope until separately checked again.
+
+## Workstation Time and Secure-Channel Troubleshooting
+
+### Unexpected Validation Discrepancy
+
+During Phase 7, `Test-ComputerSecureChannel -Verbose` returned `False`, while the workstation still reported domain membership and `nltest /sc_verify` and `/sc_query` returned `NERR_Success`. DNS and DC discovery also worked according to the notes.
+
+The investigation identified incorrect workstation time as a contributing condition. This was an unexpected lab incident, distinct from the controlled DNS-option scenario.
+
+### Inspect the Clock and Time Source
+
+Workstation checks included:
+
+```powershell
+Get-Date
+Get-TimeZone
+w32tm /query /source
+w32tm /query /status
+w32tm /stripchart /computer:ns-dc01.ad.northstarsolutions.com /samples:5 /dataonly
+```
+
+The selected time source and measured offset answer different questions. `/query /source` identifies the source Windows Time uses; `/stripchart` compares the workstation with the specified target. See [Microsoft's Windows Time tools reference](https://learn.microsoft.com/en-au/windows-server/networking/windows-time-service/windows-time-service-tools-and-settings).
+
+### Recovery and Interpretation
+
+After correcting the clock, the workstation ran `w32tm /resync`. The recovery output showed `NS-DC01` as the time source, offset samples around 1.7–1.9 milliseconds, and repeated secure-channel tests returning `True`.
+
+The observed workstation time-zone ID was `Pacific Standard Time`. This does not establish the server's exact time-zone setting.
+
+Preserve conflicting tool results instead of treating the first failure as a complete diagnosis. The recovery followed clock correction, but the evidence does not prove DHCP caused the issue or establish time as its sole cause. The [initial investigation](../02-windows-server/screenshots/20-secure-channel-time-skew-detection.png) and [recovery](../02-windows-server/screenshots/21-time-sync-secure-channel-recovery.png) retain both states.
+
+### Missing Command vs Unavailable Service
+
+`Get-ADComputer` was unavailable on the workstation because its Active Directory PowerShell tools were not installed. The directory query was performed on `NS-DC01`, where those tools were available.
+
+A locally unrecognized command is a tooling observation. It does not establish that the remote directory service is unavailable.
 
 ## Disk Management and Windows File Systems
 
@@ -1061,3 +1203,11 @@ These technologies address different risks:
 - UAC and least privilege — administrative privilege control
 
 Enterprise endpoint security relies on multiple complementary controls rather than a single security feature.
+
+---
+
+## Phase 7 Learning Checkpoint
+
+The workstation now has validated domain membership, computer and Finance user Group Policy, and Windows DHCP configuration with a `.120` reservation. The completed troubleshooting work includes `SIM-GPO-001`, `SIM-DHCP-001`, and the separate unexpected time issue.
+
+Phase 8 — File Services and Permissions is next. The original local `Finance-Data (F:)` volume does not demonstrate completion of shared-resource permissions or the remaining AGDLP relationships. See the [workstation overview](../01-windows-workstation/README.md) for current module status.

@@ -12,7 +12,7 @@ The lab is being built progressively through learning, implementation, administr
 
 | System | Role | Status |
 |---|---|---|
-| `NS-DC01` | Windows Server 2025 Standard Evaluation Domain Controller / DNS Server | Operational |
+| `NS-DC01` | Windows Server 2025 Standard Evaluation Domain Controller / DNS / DHCP Server | Operational |
 | `NS-W11-01` | Windows 11 Pro Finance Workstation | Domain Joined |
 
 ### Active Directory and Networking
@@ -23,12 +23,15 @@ The lab is being built progressively through learning, implementation, administr
 - Domain Controller IPv4: `192.168.252.10`
 - Virtual Network: VMware VMnet8 NAT, `192.168.252.0/24`
 - Default Gateway: `192.168.252.2`
-- Workstation Addressing: VMware DHCP
-- Workstation DNS Server: `192.168.252.10`
+- DHCP Server: `NS-DC01`, `192.168.252.10`; VMware DHCP disabled
+- Workstation Addressing: Windows DHCP reservation, `192.168.252.120`
+- Workstation DNS Server: `192.168.252.10`, supplied through DHCP Option 006
 
 `NS-DC01` uses its local DNS service through the IPv4 loopback address `127.0.0.1`. The workstation queries that service through the server's network address, `192.168.252.10`.
 
 The workstation computer account is located in `Northstar > Workstations > Finance`. Domain Controller discovery, the workstation-domain secure channel, and a Finance domain-user session were validated after integration.
+
+VMware continues to provide NAT and the gateway at `192.168.252.2`. DHCP responsibility moved to Windows Server during Phase 7; `NS-DC01` is not the router.
 
 ## Completed Project Phases
 
@@ -93,18 +96,60 @@ Post-join validation included:
 - `GG-Finance-Users` membership in the authenticated user's security token
 - Review of the user's token and local Administrators membership to validate the standard-user session
 
+### Phase 6 — Centralized Group Policy
+
+Implemented and validated separate computer and Finance user policies:
+
+- `Northstar - Workstation Baseline` appeared in computer-scope `gpresult` output on `NS-W11-01`; the recorded `InactivityTimeoutSecs` value was `900`.
+- `Northstar - Finance User Policy` appeared in user-scope `gpresult` output for `NORTHSTAR\ava.chen`.
+- Computer and user policy results were reviewed separately to validate the intended scope.
+
+**SIM-GPO-001 — Missing Finance OU Link** was a controlled Group Policy troubleshooting scenario. The Finance policy stopped applying after its OU link was removed. The user location, existing GPO, and configured setting were checked before the missing link was identified. Restoring the link and refreshing policy restored the GPO in `gpresult`; the notes also record restoration of the functional restriction.
+
+This was a simulated support scenario, not an unexpected production failure. See the retained [computer policy](02-windows-server/screenshots/15-workstation-baseline-gpo-verification.png), [Finance user policy](02-windows-server/screenshots/16-finance-user-gpo-verification.png), and [link-troubleshooting results](02-windows-server/screenshots/17-simulated-gpo-link-troubleshooting.png).
+
+### Phase 7 — Windows DHCP
+
+Installed the DHCP Server role on `NS-DC01`, completed post-installation configuration, and verified Active Directory authorization with `Get-DhcpServerInDC`.
+
+The `Northstar Client Network` scope was configured as:
+
+| Setting | Value |
+|---|---|
+| Scope ID / Subnet | `192.168.252.0/24` |
+| Scope Range | `192.168.252.20–192.168.252.199` |
+| Exclusion | `192.168.252.20–192.168.252.49` |
+| Client Address Range after Exclusion | `192.168.252.50–192.168.252.199`, including the reservation below |
+| Lease Duration | 8 days |
+| Option 003 — Router | `192.168.252.2` |
+| Option 006 — DNS Servers | `192.168.252.10` |
+| Option 015 — DNS Domain Name | `ad.northstarsolutions.com` |
+| Workstation Reservation | `NS-W11-01` → `192.168.252.120` |
+
+The Windows scope remained inactive until VMware DHCP was disabled. VMware NAT stayed active. The client was set to obtain DNS automatically so that the DHCP-delivered DNS option could be tested rather than masked by its earlier manual setting.
+
+The workstation initially received `192.168.252.50` from Windows DHCP and later received the reserved address `192.168.252.120` while remaining DHCP-enabled. DHCP Manager and PowerShell were used to inspect authorization, scope state, options, leases, and the reservation.
+
+Two distinct troubleshooting activities were recorded:
+
+- **Unexpected time / secure-channel issue:** `Test-ComputerSecureChannel` returned `False` despite working DNS and DC discovery. Incorrect workstation time was investigated as a contributing condition. After time correction and synchronization, the retained validation shows a closely synchronized clock and a successful secure-channel check. This was an unexpected lab issue; the evidence does not establish that DHCP caused it.
+- **SIM-DHCP-001 — Incorrect DNS Option:** Option 006 was deliberately changed to `1.1.1.1`. The client retained a valid lease and public DNS access, but internal AD names failed. A direct query to `192.168.252.10` succeeded, isolating the client DNS configuration. Restoring Option 006, renewing the lease, and clearing the resolver cache restored internal resolution; the recovery screenshot also shows successful DC discovery and a healthy secure channel.
+
+The first simulated-fault attempt used VMware DNS at `192.168.252.2`, but internal queries succeeded during that test. It was recorded as a successful test result, not falsely described as a failure. This later observation does not replace the earlier Phase 5 DNS findings.
+
 ## Current Architecture
 
 ```text
 Northstar Solutions — ad.northstarsolutions.com
 │
 ├── NS-DC01 — Windows Server 2025
-│   ├── AD DS / DNS / Global Catalog
+│   ├── AD DS / DNS / DHCP / Global Catalog
 │   └── 192.168.252.10
 │
 └── NS-W11-01 — Windows 11 Pro Finance workstation
-    ├── Domain joined; VMware DHCP IPv4
-    ├── DNS → 192.168.252.10
+    ├── Domain joined; Windows DHCP reservation → 192.168.252.120
+    ├── DHCP / DNS → 192.168.252.10
+    ├── Gateway → 192.168.252.2 (VMware NAT)
     └── Computer OU → Northstar / Workstations / Finance
 ```
 
@@ -123,10 +168,18 @@ Northstar Solutions — ad.northstarsolutions.com
 | [Workstation Interview Preparation](interview-prep/windows-workstation.md) | Questions and answers based on endpoint work |
 | [Server Interview Preparation](interview-prep/windows-server-interview.md) | Questions and answers based on infrastructure work |
 
+### Phase 6–7 Troubleshooting Reports
+
+| Report | Classification | Outcome |
+|---|---|---|
+| [SIM-GPO-001 — Missing Finance User OU Link](02-windows-server/troubleshooting/SIM-GPO-001-missing-finance-ou-link.md) | Controlled simulated support incident | Restored the OU link and verified Finance policy application |
+| [SIM-DHCP-001 — Incorrect DHCP DNS Option](02-windows-server/troubleshooting/SIM-DHCP-001-incorrect-dns-option.md) | Controlled simulated support incident | Restored internal DNS configuration and verified client recovery |
+| [INC-004 — Workstation Time and Secure-Channel Validation Issue](02-windows-server/troubleshooting/INC-004-workstation-time-secure-channel.md) | Genuine unexpected lab incident | Secure-channel checks succeeded after clock correction and resynchronization; the initiating cause remained unconfirmed |
+
+The reports include investigation, remediation, verification, and links to retained evidence. Earlier workstation cases are listed in the [workstation module](01-windows-workstation/README.md#troubleshooting-cases).
+
 ## Planned Next Phases
 
-- Phase 6 — Centralized Group Policy
-- Phase 7 — DHCP administration
 - Phase 8 — File services and permissions
 - Phase 9 — PowerShell administration and automation
 - Phase 10 — Server operations, monitoring, logging, backup, and recovery
@@ -144,10 +197,10 @@ Healthy configurations are built and verified before deliberately introducing co
 
 Evidence is selective: screenshots and written observations demonstrate meaningful configuration, administration, validation, and troubleshooting rather than every individual click.
 
-The current environment uses one Domain Controller and DNS server on a single physical host. Production redundancy, enterprise scale, and future technologies are not claimed as implemented capabilities.
+The current environment hosts AD DS, DNS, and DHCP on one Windows Server VM on a single physical host. Production redundancy, DHCP failover, enterprise scale, and future technologies are not claimed as implemented capabilities.
 
 ## Current Project Status
 
-**Technical checkpoint: Phases 1–5 complete. Phase 6 — Centralized Group Policy is next and has not yet started hands-on.**
+**Technical checkpoint: Phases 1–7 complete. Phase 8 — File Services and Permissions is next.**
 
-This overview reflects the project notes and retained evidence through September 16, 2026. Supporting Markdown documentation is being updated to the same Phase 4–5 checkpoint; some linked documents still describe the earlier state.
+This overview and the linked module overviews, system baselines, screenshot guides, knowledge bases, and interview preparation reflect the Phase 6–7 checkpoint. Earlier assessments and phase summaries preserve their historical configuration. The three Phase 6–7 troubleshooting reports are documented separately above.

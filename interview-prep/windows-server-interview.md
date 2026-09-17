@@ -1,6 +1,6 @@
 # Windows Server Administration — Interview Preparation
 
-This document contains interview questions and sample answers based on the Windows Server, DNS, directory administration, and workstation domain-integration work recorded through Phase 5 of the Northstar Solutions enterprise IT homelab.
+This document contains interview questions and sample answers based on the Windows Server, DNS, directory administration, workstation integration, Group Policy, and DHCP work recorded through Phase 7 of the Northstar Solutions enterprise IT homelab.
 
 Answers distinguish completed lab actions from hypothetical troubleshooting approaches and future work. Technical detail and supporting evidence are maintained in the [server baseline](../02-windows-server/server-baseline.md), [screenshot guide](../02-windows-server/screenshots/README.md), and [server knowledge base](../knowledge-base/windows-server-administration.md).
 
@@ -18,7 +18,7 @@ Before deploying Active Directory and DNS, I inspected the VMware subnet and DHC
 
 `192.168.252.10`
 
-The address is outside the VMware DHCP allocation range used by the lab.
+The address was outside the original VMware DHCP allocation range and is also outside the Windows DHCP scope introduced in Phase 7.
 
 In production, I would follow the organization's IP address management and network design standards rather than independently selecting an address.
 
@@ -66,7 +66,7 @@ A server role represents a primary responsibility performed by the server, such 
 
 A feature provides additional operating-system functionality or supports installed roles.
 
-In my lab, I installed the Active Directory Domain Services and DNS Server roles on `NS-DC01`.
+In my lab, I installed the Active Directory Domain Services and DNS Server roles on `NS-DC01`, then added DHCP Server in Phase 7.
 
 ### 2. What is Active Directory Domain Services?
 
@@ -400,7 +400,7 @@ An OU is an Active Directory container used for administrative organization, del
 
 I created a top-level `Northstar` OU with Users, Workstations, Groups, Service Accounts, and Disabled Objects branches. Users and Workstations have Finance, IT, and Operations sub-OUs.
 
-I kept `NS-DC01` in the default Domain Controllers OU. The custom structure supports administration and future policy scope; creating it does not mean a new Group Policy has already been deployed.
+I kept `NS-DC01` in the default Domain Controllers OU. The custom structure supports administration and policy targeting. In Phase 6, I separately validated computer and user policy application; OU creation alone does not demonstrate that policies apply.
 
 ### 2. What is the difference between an OU and a security group?
 
@@ -478,6 +478,8 @@ Before the change, `NS-W11-01` used VMware DNS at `192.168.252.2`. I changed its
 
 After the change, I validated the DC name, domain, LDAP SRV records, and external name resolution before joining the domain. I did not configure the client to use the DC's loopback address `127.0.0.1`.
 
+That was the Phase 5 configuration. In Phase 7, I migrated the workstation to Windows DHCP and automatic DNS configuration. It now receives internal DNS through Option 006 and uses the reservation `192.168.252.120`.
+
 ### 2. What did you learn when you could ping the DC but could not resolve the domain?
 
 It demonstrated that IP connectivity, DNS resolution, and Active Directory service discovery are separate checks.
@@ -519,7 +521,7 @@ Northstar
         └── NS-W11-01
 ```
 
-I verified its Distinguished Name and enabled state with `Get-ADComputer` on the server. Domain joining and final OU placement were separate actions. The placement prepares for Finance workstation Group Policy, which is the next phase.
+I verified its Distinguished Name and enabled state with `Get-ADComputer` on the server. Domain joining and final OU placement were separate actions. In Phase 6, I separately verified the workstation's applied computer policy using `gpresult`.
 
 ### 6. What is the difference between a local account and a domain account?
 
@@ -555,7 +557,200 @@ My actual pre-join DNS observation illustrates the first part of this approach. 
 
 ---
 
-## 8. Homelab Design and Production Considerations
+## 8. Centralized Group Policy
+
+### 1. What Group Policy work have you completed?
+
+I validated `Northstar - Workstation Baseline` in the computer context on `NS-W11-01` and `Northstar - Finance User Policy` in Ava Chen's user context.
+
+For the workstation policy, I verified `InactivityTimeoutSecs = 900` in the registry and checked that the GPO appeared in computer-scope results. For the Finance policy, I verified the signed-in identity and the applied user-policy list.
+
+My retained Finance evidence does not identify the exact restriction setting, so I describe the policy application and troubleshooting that I can support.
+
+### 2. How did you distinguish computer policy from user policy?
+
+I checked them in separate contexts. In an elevated session on the workstation, I used:
+
+```cmd
+gpresult /r /scope computer
+gpresult /h C:\gpo-report.html /scope computer
+```
+
+In Ava's session, I used:
+
+```cmd
+whoami
+gpresult /r /scope user
+```
+
+This let me verify the intended computer and user results rather than assuming that one applied-policy list described both contexts.
+
+### 3. Does a GPO existing in the domain mean it applies to the intended user?
+
+No. In my simulated Finance policy incident, the GPO still existed and its configured setting remained enabled, but the Finance user OU link was missing.
+
+The user remained in the correct OU, yet the policy was absent from `gpresult`. I learned to check scope and links as well as the GPO's settings.
+
+### 4. Describe the Group Policy problem you troubleshot.
+
+In **SIM-GPO-001**, I deliberately reproduced a missing Finance user OU link. This was a controlled support simulation.
+
+I checked the user's OU, confirmed that the GPO and setting still existed, and found the policy absent from the applied results. I then identified and restored the missing link.
+
+After `gpupdate /force`, the Finance GPO appeared in user-scope results again. My notes also record that the functional restriction returned. The screenshot supports the policy absence, refresh, and recovery; it does not show the link edit itself.
+
+### 5. Why wasn't repeatedly running gpupdate enough?
+
+Refreshing policy did not address the missing link. I needed to correct the scope problem first, then refresh and verify the result.
+
+The lesson was to identify why the intended policy was absent rather than treating a successful refresh message as proof that it applied.
+
+---
+
+## 9. Windows DHCP Administration
+
+### 1. What did you change when you deployed Windows DHCP?
+
+I moved client address allocation from VMware DHCP at `192.168.252.254` to Windows DHCP on `NS-DC01` at `192.168.252.10`.
+
+VMware continued providing NAT through `192.168.252.2`. The DC retained its static address and local DNS client setting `127.0.0.1`.
+
+The workstation changed from VMware DHCP with manually configured internal DNS to Windows DHCP with automatically supplied DNS settings.
+
+### 2. How did you design the scope?
+
+I configured the `Northstar Client Network` scope for `192.168.252.0/24`:
+
+| Setting | Value |
+|---|---|
+| Scope Range | `192.168.252.20`–`192.168.252.199` |
+| Exclusion | `192.168.252.20`–`192.168.252.49` |
+| Client Range | `.50`–`.199`, including the `.120` reservation |
+| Lease Duration | 8 days |
+
+The exclusion protected the planned infrastructure range while letting me practice scope administration. The DC's static `.10` address was outside the scope.
+
+### 3. What is the difference between an exclusion, a reservation, and a static address?
+
+In my lab, the exclusion withheld `.20`–`.49` from DHCP allocation. It did not assign those addresses to any server.
+
+The reservation associated `.120` with the workstation's MAC address, `00-0C-29-5F-31-87`. The workstation continued to use DHCP.
+
+The DC's `.10` address was configured manually on the server. That is different from the client's reservation.
+
+### 4. Which DHCP options did you configure?
+
+| Option | Value |
+|---|---|
+| 003 — Router | `192.168.252.2` |
+| 006 — DNS Servers | `192.168.252.10` |
+| 015 — DNS Domain Name | `ad.northstarsolutions.com` |
+
+I set the workstation to obtain DNS automatically so I could validate Option 006 rather than leave its earlier manual setting in place. I then checked the actual client configuration with `ipconfig /all`.
+
+Option 006 supplies a DNS client setting; it does not configure a DNS forwarder on the server.
+
+### 5. How did you manage the DHCP cutover?
+
+I installed the role, completed post-installation configuration, and authorized `NS-DC01` in Active Directory. I verified authorization with `Get-DhcpServerInDC`.
+
+I configured the Windows scope but kept it inactive until VMware DHCP was disabled on VMnet8. I retained NAT, activated the Windows scope, then released and renewed the client's lease.
+
+This sequencing avoided having the two independent DHCP configurations compete during the lab migration.
+
+### 6. How did you prove the client was using Windows DHCP?
+
+The first renewed lease was `192.168.252.50`. Client output showed DHCP enabled, `.10` as both DHCP and DNS server, gateway `.2`, and the Northstar DNS suffix.
+
+On the server, I used `Get-DhcpServerv4Lease -ScopeId 192.168.252.0` and matched the workstation's client ID to its active lease.
+
+After creating the reservation and renewing again, the client received `.120` while still showing `DHCP Enabled = Yes`.
+
+### 7. Which PowerShell commands did you use to administer DHCP?
+
+On `NS-DC01`, I used:
+
+```powershell
+Get-DhcpServerInDC
+Get-DhcpServerv4Scope
+Get-DhcpServerv4Lease -ScopeId 192.168.252.0
+Get-DhcpServerv4Reservation -ScopeId 192.168.252.0
+Get-DhcpServerv4OptionValue -ScopeId 192.168.252.0
+```
+
+These let me inspect authorization, scope state, leases, reservations, and options. I also used DHCP Manager and compared server-side information with the client's `ipconfig /all` output.
+
+### 8. Can a client have a valid DHCP lease and still have an Active Directory DNS problem?
+
+Yes. In **SIM-DHCP-001**, I temporarily changed Option 006 to `1.1.1.1`.
+
+The workstation retained its `.120` reservation and could reach the DC by IP. External DNS worked, but internal Northstar names failed. A direct query to `192.168.252.10` succeeded, isolating the issue to the DNS server supplied to the client.
+
+I restored Option 006 to `.10`, renewed the client configuration, cleared its DNS cache, and verified internal resolution, DC discovery, and the secure channel again. This was an intentionally created support scenario.
+
+### 9. Did every attempted fault produce the result you expected?
+
+No. My first DNS-option test used VMware's `.2` resolver, and internal names and LDAP SRV queries still resolved according to my notes.
+
+I recorded that result and used `1.1.1.1` to reproduce the intended failure. I did not invent a caching or forwarding explanation for the earlier successful queries.
+
+That also remained separate from the Phase 5 pre-join observation, when the VMware resolver had failed to resolve the internal names.
+
+### 10. What did you learn about interpreting DNS test output?
+
+I need to inspect the returned record type rather than assume that any output proves the intended lookup succeeded.
+
+In my recovery screenshot, the LDAP service-name query omitted `-Type SRV` and returned an SOA record in the Authority section. I do not present that as an SRV answer. My notes separately record explicit SRV validation using:
+
+```powershell
+Resolve-DnsName _ldap._tcp.dc._msdcs.ad.northstarsolutions.com -Type SRV
+```
+
+---
+
+## 10. Time and Secure-Channel Troubleshooting
+
+### 1. What unexpected issue did you encounter during Phase 7?
+
+`Test-ComputerSecureChannel -Verbose` returned `False` during validation, even though DNS and DC discovery were working.
+
+The workstation still reported domain membership, while `nltest /sc_verify` and `/sc_query` returned `NERR_Success`. I preserved those conflicting observations and investigated further instead of immediately treating the machine account as lost.
+
+My investigation identified incorrect workstation time as a contributing condition. This was an unexpected lab incident, separate from the simulated DHCP DNS fault.
+
+### 2. How did you inspect and validate time synchronization?
+
+On the workstation, I used:
+
+```powershell
+Get-Date
+Get-TimeZone
+w32tm /query /source
+w32tm /query /status
+w32tm /stripchart /computer:ns-dc01.ad.northstarsolutions.com /samples:5 /dataonly
+```
+
+After correcting the clock, I used `w32tm /resync` and repeated the secure-channel test. The recovery output identified `NS-DC01` as the time source, showed closely synchronized offset samples, and returned `True` for the secure-channel check.
+
+The observed recovery followed time correction. I would not claim that DHCP caused the issue or that the evidence proved time was its sole cause.
+
+### 3. Would you immediately rejoin a computer to the domain after one failed secure-channel test?
+
+I would first investigate the exact result, execution context, network configuration, DNS, DC discovery, and time state.
+
+In this lab, the different tools did not all report failure. Recording those results and checking time helped me validate recovery without treating the first output as a complete diagnosis.
+
+A trust repair or domain rejoin would need evidence supporting that action rather than being my automatic first step.
+
+### 4. What did you do when Get-ADComputer was unavailable on the workstation?
+
+The Active Directory PowerShell tools were not installed there, so the command was not recognized. I ran the directory query on `NS-DC01`, where the tools were available, and verified the enabled workstation object and Finance OU placement.
+
+I treated the missing command as a local tooling limitation rather than evidence that Active Directory was unavailable.
+
+---
+
+## 11. Homelab Design and Production Considerations
 
 ### 1. How did you configure your Windows Server homelab?
 
@@ -571,9 +766,11 @@ After the restart, I validated the domain, forest, Global Catalog, AD DS and DNS
 
 I then administered DNS records and reverse resolution, created the OU structure and employee accounts, configured departmental Global Security groups, and practiced a fictional employee identity lifecycle.
 
-Finally, I configured the Finance workstation to use internal DNS, joined it to the domain, validated discovery and the secure channel, placed its computer object in the Finance Workstations OU, and checked a standard domain-user session.
+I configured the Finance workstation to use internal DNS, joined it to the domain, validated discovery and the secure channel, placed its computer object in the Finance Workstations OU, and checked a standard domain-user session.
 
-The next stage is centralized Group Policy. That phase has not yet started hands-on.
+I then validated computer and Finance user Group Policy, completed a simulated missing-link investigation, and migrated client addressing from VMware DHCP to Windows DHCP. I created a workstation reservation, investigated an unexpected time issue, and completed a simulated incorrect DNS-option scenario.
+
+Phase 8 — File Services and Permissions is next. Resource-specific Domain Local groups and permissions remain future work.
 
 ### 2. Would you deploy only one Domain Controller in production?
 
@@ -584,6 +781,8 @@ My homelab currently uses one Domain Controller because I am working with limite
 A production environment would evaluate redundancy and availability requirements and would commonly use multiple Domain Controllers and DNS servers where appropriate.
 
 I would not describe my single-DC homelab design as production high availability.
+
+AD DS, DNS, and DHCP currently share `NS-DC01`, and I have not deployed a DHCP failover partner.
 
 ### 3. What production practices are you trying to apply in your homelab?
 
@@ -605,4 +804,6 @@ I also document limitations rather than presenting a resource-constrained VMware
 
 During Phases 4–5, I corrected an initial departmental membership mistake and observed the client's DNS prerequisite gap before joining the domain. I also completed the controlled Noah Wilson identity-lifecycle exercise.
 
-I have not yet completed an intentionally induced Phase 4–5 fault scenario. Planned account, policy, and access troubleshooting should be described as future work until it is performed and verified.
+In Phase 6, I completed `SIM-GPO-001`, a controlled missing Finance user OU link scenario. In Phase 7, I completed `SIM-DHCP-001`, a controlled incorrect DNS-option scenario, and investigated an unexpected workstation time and secure-channel issue.
+
+I label those activities separately: validation corrections, administration exercises, simulated support incidents, and unexpected project incidents. I do not present the controlled faults as production outages or claim that future file-access scenarios are already complete.

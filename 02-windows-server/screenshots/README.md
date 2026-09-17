@@ -4,7 +4,7 @@
 
 This directory contains selected visual evidence collected while deploying, configuring, and administering `NS-DC01` and integrating the Finance workstation `NS-W11-01` into the Northstar Solutions domain.
 
-The evidence demonstrates server deployment, Active Directory and DNS validation, directory-object administration, a fictional identity lifecycle, and workstation domain integration through September 16, 2026.
+The evidence demonstrates server deployment, Active Directory and DNS validation, directory-object administration, a fictional identity lifecycle, workstation domain integration, centralized Group Policy, and Windows DHCP through Phase 7.
 
 Screenshots are grouped by administrative activity rather than documented individually when several images support the same task.
 
@@ -583,6 +583,318 @@ The workstation authenticated the Finance domain identity and reflected the depa
 
 ---
 
+## 15. Workstation Group Policy Validation
+
+### Context
+
+Phase 6 introduced the computer-scoped `Northstar - Workstation Baseline` policy. Its application and workstation inactivity setting were checked on `NS-W11-01` in an elevated session.
+
+### Evidence
+
+![Workstation computer policy and 900-second inactivity value](15-workstation-baseline-gpo-verification.png)
+
+The visible commands include:
+
+```powershell
+Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name InactivityTimeoutSecs
+gpresult /h C:\gpo-report.html /scope computer
+gpresult /r /scope computer
+```
+
+The output shows:
+
+- `InactivityTimeoutSecs` returning `900` seconds.
+- The computer object in `Northstar > Workstations > Finance`.
+- Policy applied from `NS-DC01.ad.northstarsolutions.com`.
+- `Northstar - Workstation Baseline`, Default Domain Policy, and Local Group Policy in the applied computer-policy list.
+
+### Interpretation
+
+The screenshot verifies the applied computer policy and registry value. It does not display the GPO's exact link location or a timed lock-screen test. The HTML-report command is visible, but the report contents are not shown.
+
+### Outcome
+
+Computer-scope policy application and the 900-second inactivity value were verified on the Finance workstation.
+
+---
+
+## 16. Finance User Group Policy Validation
+
+### Context
+
+The Finance user policy was checked separately from computer policy, in Ava Chen's domain session on `NS-W11-01`.
+
+### Evidence
+
+![Finance user identity and applied user policy](16-finance-user-gpo-verification.png)
+
+The screenshot shows:
+
+- `gpresult /r /scope user` for `NORTHSTAR\ava.chen`.
+- Ava's Distinguished Name under `Northstar > Users > Finance`.
+- `Northstar - Finance User Policy` in the applied policy list.
+- Local Group Policy filtered out as empty.
+- `GG-Finance-Users` in the displayed group membership.
+- `whoami` confirming `northstar\ava.chen`.
+
+### Interpretation
+
+The output demonstrates user-policy application in the intended Finance session. It does not identify the exact restriction setting configured in the GPO.
+
+### Outcome
+
+The Finance user policy was verified independently of the workstation's computer policy.
+
+---
+
+## 17. Simulated Missing GPO Link Troubleshooting
+
+### Context
+
+**SIM-GPO-001** was a controlled simulated support incident. The notes record a missing Finance user OU link while the user remained in the correct OU and the GPO and its enabled setting still existed.
+
+### Evidence
+
+![Missing applied Finance policy followed by refresh and restored application](17-simulated-gpo-link-troubleshooting.png)
+
+The visible sequence includes:
+
+1. An earlier applied-policy list displaying `N/A`.
+2. `gpupdate /force` reporting successful computer and user policy updates.
+3. `gpresult /r /scope user` again listing `Northstar - Finance User Policy` for Ava Chen.
+
+### Interpretation
+
+The image demonstrates the before-and-after policy results. Link diagnosis, link restoration, and the restored functional restriction are recorded in the notes; the screenshot does not show those actions directly. Policy refresh followed the link correction.
+
+### Outcome
+
+Finance user-policy application was restored after the OU link was repaired. This was a simulated support incident, not an unexpected project outage.
+
+---
+
+## 18. Windows DHCP Authorization, Scope, and Lease Validation
+
+### Context
+
+Phase 7 moved client address allocation from VMware DHCP to Windows DHCP on `NS-DC01`. The notes record disabling VMware DHCP before activating the Windows scope, while retaining VMware NAT.
+
+### Evidence
+
+![Authorized Windows DHCP server, scope activation, and client lease](18-windows-dhcp-client-lease-verification.png)
+
+The server-side output shows:
+
+| Check | Visible Result |
+|---|---|
+| `Get-DhcpServerInDC` | `192.168.252.10`, `ns-dc01.ad.northstarsolutions.com` |
+| Scope ID / Mask | `192.168.252.0` / `255.255.255.0` |
+| Scope Range | `192.168.252.20`–`192.168.252.199` |
+| Lease Duration | `8.00:00:00` — eight days |
+| Scope State | Inactive in the earlier query; Active in the later query |
+| Workstation Lease | `192.168.252.50`, client ID `00-0c-29-5f-31-87`, Active |
+
+The lease table also contains another active lease at `.51`; it is not identified as the Finance workstation. A subsequent `Get-ADComputer` query shows `NS-W11-01` enabled in the Finance Workstations OU.
+
+### Interpretation
+
+The screenshot supports server authorization, scope activation, and lease validation. The scope name is truncated here and is visible in full in section 22. Exclusions, scope options, and the host-side VMware DHCP change are recorded in the notes rather than displayed in this image.
+
+### Outcome
+
+The authorized Windows DHCP server had an active scope and an active lease for the Finance workstation.
+
+---
+
+## 19. Windows DHCP Client Configuration
+
+### Context
+
+The workstation retained automatic IPv4 addressing and was changed to obtain DNS automatically so validation would test the Windows DHCP scope options.
+
+### Evidence
+
+![Workstation lease renewal and Windows DHCP network configuration](19-windows-dhcp-client-configuration-verification.png)
+
+The screenshot shows `ipconfig /release`, `ipconfig /renew`, and `ipconfig /all` with:
+
+| Setting | Visible Value |
+|---|---|
+| Hostname | `NS-W11-01` |
+| Physical Address | `00-0C-29-5F-31-87` |
+| DHCP Enabled | Yes |
+| IPv4 Address | `192.168.252.50` |
+| Subnet Mask | `255.255.255.0` |
+| Default Gateway | `192.168.252.2` |
+| DHCP Server | `192.168.252.10` |
+| DNS Server | `192.168.252.10` |
+| Connection-specific DNS Suffix | `ad.northstarsolutions.com` |
+
+### Interpretation
+
+This is the initial Windows DHCP lease, before the later `.120` reservation. The `.50` address remains part of the build history. The client output shows the delivered values; the server-side option configuration is documented in the baseline and lab notes.
+
+### Outcome
+
+The workstation received its network configuration from Windows DHCP while continuing to use VMware's NAT gateway.
+
+---
+
+## 20. Unexpected Secure-Channel and Time Investigation
+
+### Context
+
+An unexpected secure-channel test failure was investigated during Phase 7 validation. This was separate from the controlled DHCP DNS-option simulation.
+
+### Evidence
+
+![Conflicting secure-channel results, domain membership, and workstation clock inspection](20-secure-channel-time-skew-detection.png)
+
+The screenshot shows:
+
+- `Test-ComputerSecureChannel -Verbose` returning `False` and reporting a broken secure channel.
+- Successful external DNS resolution.
+- `CsPartOfDomain = True` for `ad.northstarsolutions.com`.
+- `nltest /sc_verify` and `/sc_query` reporting `NERR_Success`.
+- `Get-Date` and `Get-TimeZone`, with the workstation time-zone ID `Pacific Standard Time`.
+
+### Interpretation
+
+The conflicting test results are preserved. This image does not show that the workstation left the domain or that DHCP caused the failure. The notes identify incorrect workstation time as a contributing condition; this screenshot alone does not measure the clock offset from the DC.
+
+### Outcome
+
+The discrepancy prompted further time-synchronization checks and recovery validation rather than treating a single failed test as a complete diagnosis.
+
+---
+
+## 21. Time Synchronization and Secure-Channel Recovery
+
+### Context
+
+The notes record correcting the workstation clock and resynchronizing with `NS-DC01` before repeating validation.
+
+### Evidence
+
+![Successful time synchronization and repeated secure-channel validation](21-time-sync-secure-channel-recovery.png)
+
+The output shows:
+
+- `w32tm /resync` completing successfully.
+- `w32tm /query /source` identifying `NS-DC01.ad.northstarsolutions.com`.
+- Time status identifying source IP `192.168.252.10`.
+- Five strip-chart offset samples of approximately `+0.0017` to `+0.0019` seconds.
+- Two `Test-ComputerSecureChannel -Verbose` results returning `True` and reporting good condition.
+- The workstation time-zone ID `Pacific Standard Time`.
+
+The visible offset check used:
+
+```cmd
+w32tm /stripchart /computer:ns-dc01.ad.northstarsolutions.com /samples:5 /dataonly
+```
+
+### Interpretation
+
+The client was closely synchronized with the DC during these samples. Secure-channel validation succeeded after time correction and resynchronization. This supports the recovery sequence without establishing time as the sole cause of the earlier discrepancy.
+
+### Outcome
+
+Time synchronization and successful secure-channel validation were recorded after the unexpected lab issue.
+
+---
+
+## 22. Finance Workstation DHCP Reservation
+
+### Context
+
+A DHCP reservation was created to give `NS-W11-01` a predictable address while retaining automatic client configuration.
+
+### Evidence
+
+![NS-W11-01 reservation at 192.168.252.120 in DHCP Manager](22-dhcp-reservation-verification.png)
+
+DHCP Manager shows:
+
+- Server: `ns-dc01.ad.northstarsolutions.com`.
+- IPv4 scope: `[192.168.252.0] Northstar Client Network`.
+- Reservation: `[192.168.252.120] NS-W11-01`.
+
+### Interpretation
+
+The console view demonstrates the reservation name and address. Its MAC address, description, and DHCP-only selection are recorded in the notes rather than visible here. Client use of `.120` is shown in sections 23–24.
+
+Server Manager event entries are visible behind DHCP Manager. Their details and resolution are not shown, so this image is not used to claim a clean event log or diagnose those entries.
+
+### Outcome
+
+The Finance workstation reservation was recorded in the Windows DHCP scope. The workstation continued to use DHCP rather than a manually assigned static address.
+
+---
+
+## 23. Simulated Incorrect DHCP DNS Option
+
+### Context
+
+**SIM-DHCP-001** was a controlled simulated support incident. DHCP Option 006 was temporarily changed to `1.1.1.1` to reproduce internal DNS failure on a domain client.
+
+The notes record an earlier test using `192.168.252.2` that still resolved internal names and did not reproduce the intended failure. That test is not shown in this image.
+
+### Evidence
+
+![Public DNS client setting, internal lookup failures, and successful direct internal DNS query](23-simulated-dhcp-dns-option-failure.png)
+
+The client configuration shows:
+
+| Setting | Visible Value |
+|---|---|
+| IPv4 Address | `192.168.252.120` |
+| DHCP Enabled | Yes |
+| Default Gateway | `192.168.252.2` |
+| DHCP Server | `192.168.252.10` |
+| DNS Server | `1.1.1.1` |
+
+The adjacent PowerShell output shows successful external resolution, failed queries for the internal DC and LDAP service name, and a successful DC A-record query explicitly targeting `192.168.252.10` with `-DnsOnly`.
+
+### Interpretation
+
+The successful direct internal query supports isolation to the client's DNS configuration. The visible LDAP service-name query omits `-Type SRV`; explicit SRV testing and IP-connectivity checks are recorded in the notes.
+
+### Outcome
+
+The controlled fault demonstrated that a valid lease and working external DNS do not establish correct internal Active Directory DNS configuration.
+
+---
+
+## 24. Simulated DHCP DNS-Option Recovery
+
+### Context
+
+Option 006 was restored to `192.168.252.10`. The notes record lease release and renewal, DNS cache clearing, and renewed domain validation to close `SIM-DHCP-001`.
+
+### Evidence
+
+![Restored internal DNS configuration, DC discovery, and secure-channel validation](24-simulated-dhcp-dns-option-recovery.png)
+
+The screenshot shows lease renewal, cache clearing, and client configuration with:
+
+- Reserved IPv4 address `192.168.252.120` and MAC `00-0C-29-5F-31-87`.
+- `DHCP Enabled = Yes`.
+- DHCP and DNS server `192.168.252.10`.
+- Gateway `192.168.252.2` and the Northstar connection-specific DNS suffix.
+- Successful DC A-record resolution through both an explicit internal query and an ordinary query.
+- Successful Domain Controller discovery using `nltest /dsgetdc`.
+- `Test-ComputerSecureChannel -Verbose` returning `True`.
+
+### Interpretation
+
+The visible LDAP service-name query omits `-Type SRV` and returns an SOA record in the Authority section. It is not an SRV answer. Successful explicit SRV validation is recorded separately in the notes.
+
+### Outcome
+
+The internal DNS client configuration was restored, and DC name resolution, discovery, and secure-channel validation succeeded. The reservation remained active throughout the simulated DNS-option failure and recovery.
+
+---
+
 ## Evidence Summary
 
 The selected screenshots demonstrate server administration and workstation integration across the following areas:
@@ -614,6 +926,12 @@ The selected screenshots demonstrate server administration and workstation integ
 - Workstation-domain secure-channel validation
 - Enabled workstation computer object and Finance OU placement
 - Domain-user identity, group-token membership, and standard-user session checks
+- Computer-scoped Group Policy and the 900-second inactivity setting
+- Finance user-policy application and simulated missing-link recovery
+- DHCP authorization, scope activation, and client lease validation
+- Windows DHCP client configuration and workstation reservation
+- Unexpected secure-channel discrepancy, time synchronization, and recovery
+- Simulated incorrect DHCP DNS-option failure isolation and recovery
 
 The evidence is intentionally selective.
 
@@ -627,7 +945,7 @@ Additional screenshots should only be added when they demonstrate a new administ
 
 ## Status
 
-**Windows Server Infrastructure Screenshot Evidence — Complete through Phase 5**
+**Windows Server Infrastructure Screenshot Evidence — Complete through Phase 7**
 
 Current evidence covers:
 
@@ -643,9 +961,14 @@ Current evidence covers:
 - Identity lifecycle administration
 - Windows 11 domain integration and computer-object placement
 - Domain-user authentication and workstation trust validation
+- Centralized computer and user Group Policy
+- Simulated missing Finance GPO link recovery
+- Windows DHCP deployment, client configuration, and reservation
+- Unexpected time issue investigation and secure-channel recovery
+- Simulated DHCP DNS-option troubleshooting
 
-The retained set contains 15 images across activities 01–14, including the two images for activity 11. Existing filenames and historical screenshots are preserved.
+The retained set contains 25 images across activities 01–24, including the two images for activity 11. Existing filenames and historical screenshots are preserved.
 
-Phase 6 — Centralized Group Policy is the next technical phase and has not yet started hands-on. The next meaningful screenshot will use the `15-...` prefix.
+Phases 6–7 are complete. Phase 8 — File Services and Permissions is next. The next meaningful screenshot will use the `25-...` prefix.
 
-Later evidence will be added selectively for DHCP, file services, PowerShell automation, server operations, security, monitoring, and troubleshooting. No intentionally induced Phase 4–5 fault scenario is reported complete.
+Later evidence will be added selectively for file services, PowerShell automation, server operations, security, monitoring, and troubleshooting. The completed Phase 6–7 simulations are labeled `SIM-GPO-001` and `SIM-DHCP-001`; the unexpected time issue is documented separately from those controlled scenarios.

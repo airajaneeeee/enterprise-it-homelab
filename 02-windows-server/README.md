@@ -4,7 +4,7 @@
 
 Northstar Solutions is expanding its lab environment from standalone Windows workstation administration to centralized Windows infrastructure.
 
-As the assigned junior IT administrator, I am responsible for deploying and configuring the first Windows Server system, establishing reliable server networking, implementing Active Directory Domain Services and DNS, administering directory objects, integrating the Finance workstation, and preparing the environment for centralized Group Policy.
+As the assigned junior IT administrator, I am responsible for deploying and configuring the first Windows Server system, establishing reliable server networking, implementing Active Directory Domain Services and DNS, administering directory objects, integrating the Finance workstation, applying centralized Group Policy, and migrating client address allocation to Windows DHCP.
 
 ## Server
 
@@ -12,7 +12,7 @@ As the assigned junior IT administrator, I am responsible for deploying and conf
 - Fully Qualified Domain Name: `NS-DC01.ad.northstarsolutions.com`
 - Operating System: Windows Server 2025 Standard Evaluation
 - Platform: VMware Workstation
-- Role: Domain Controller / DNS Server
+- Role: Domain Controller / DNS Server / DHCP Server
 - Active Directory Domain: `ad.northstarsolutions.com`
 
 ## Lab Objectives
@@ -42,6 +42,12 @@ As the assigned junior IT administrator, I am responsible for deploying and conf
 - Join the workstation to the Northstar domain
 - Validate Domain Controller discovery and the workstation-domain secure channel
 - Verify domain-user authentication and departmental group membership
+- Apply and verify computer-scoped and user-scoped Group Policy
+- Troubleshoot a simulated missing Group Policy link
+- Plan DHCP addressing, exclusions, options, and reservations
+- Install and authorize Windows DHCP and migrate clients from VMware DHCP
+- Validate DHCP leases, internal DNS, domain discovery, and time synchronization
+- Troubleshoot a simulated incorrect DHCP DNS option
 
 ## Completed Work
 
@@ -282,6 +288,81 @@ The retained output shows:
 
 These checks support the documented standard-user session and departmental membership. They do not constitute an audit of all resource permissions. Secure-channel success is documented in the separate administrative validation screenshot.
 
+### Centralized Group Policy
+
+Phase 6 introduced separate computer and user policies for the Finance workstation and user session.
+
+| Policy | Validation |
+|---|---|
+| `Northstar - Workstation Baseline` | Applied in computer-scope `gpresult`; `InactivityTimeoutSecs` verified as `900` seconds |
+| `Northstar - Finance User Policy` | Applied in user-scope `gpresult` for `NORTHSTAR\ava.chen` |
+
+Computer and user results were checked separately to confirm policy application in the intended context. The retained evidence documents the workstation inactivity setting and Finance policy application; it does not identify the exact Finance restriction setting.
+
+In **SIM-GPO-001**, a missing link at the Finance user OU was intentionally used to simulate a policy-application problem. The user remained in the correct OU, and the GPO and its configured setting still existed, but the policy was absent from the applied results.
+
+The OU link was restored, policy was refreshed, and the Finance policy appeared in `gpresult` again. The lab notes also record restoration of the intended restriction. This was a simulated support incident, separate from unexpected project problems.
+
+### Windows DHCP Deployment and Cutover
+
+Phase 7 replaced VMware DHCP with Windows DHCP on `NS-DC01`. VMware continues to provide NAT through `192.168.252.2`; the server retains its static address `192.168.252.10` and local DNS client setting `127.0.0.1`.
+
+| Scope Setting | Value |
+|---|---|
+| Name | `Northstar Client Network` |
+| Scope ID | `192.168.252.0` |
+| Subnet Mask | `255.255.255.0` |
+| Address Range | `192.168.252.20`–`192.168.252.199` |
+| Exclusion | `192.168.252.20`–`192.168.252.49` |
+| Client Range | `192.168.252.50`–`192.168.252.199`, including the workstation reservation |
+| Lease Duration | 8 days |
+| Option 003 — Router | `192.168.252.2` |
+| Option 006 — DNS Servers | `192.168.252.10` |
+| Option 015 — DNS Domain Name | `ad.northstarsolutions.com` |
+
+The DHCP Server role was installed, post-installation configuration was completed, and the server was authorized in Active Directory. Authorization was verified using `Get-DhcpServerInDC`.
+
+The Windows scope remained inactive until VMware DHCP was disabled on VMnet8. VMware NAT remained enabled. The Windows scope was then activated, avoiding simultaneous operation of the old and new DHCP services during cutover.
+
+`NS-W11-01` was configured to obtain both IPv4 addressing and DNS settings automatically. After release and renewal, it received `192.168.252.50`, with `192.168.252.10` as both DHCP and DNS server, the VMware gateway, and the Northstar DNS suffix. Server-side lease inspection confirmed the active client.
+
+### DHCP Reservation and Administration
+
+A DHCP-only reservation was created for the Finance workstation:
+
+| Setting | Value |
+|---|---|
+| Reservation Name | `NS-W11-01` |
+| Client MAC Address | `00-0C-29-5F-31-87` |
+| Reserved IPv4 Address | `192.168.252.120` |
+| Description | Finance domain workstation |
+
+After another release and renewal, the workstation received `192.168.252.120` while retaining `DHCP Enabled = Yes`. This is a DHCP reservation, not a manually configured static client address. The reserved address is within the client range and is assigned to this workstation.
+
+DHCP Manager and PowerShell were used to inspect authorization, scope state, leases, reservations, and scope options. Internal DNS, LDAP SRV discovery, Domain Controller discovery, and external DNS resolution were checked during migration validation.
+
+### Unexpected Time and Secure-Channel Validation Issue
+
+During Phase 7 validation, `Test-ComputerSecureChannel -Verbose` returned `False`, while DNS, LDAP SRV resolution, and Domain Controller discovery remained healthy. The workstation remained domain joined, and `nltest` secure-channel queries reported `NERR_Success`.
+
+Investigation identified incorrect workstation time as a contributing condition. After correcting the clock and resynchronizing with `NS-DC01`, the client was closely synchronized and `Test-ComputerSecureChannel -Verbose` returned `True`.
+
+This was an unexpected lab incident. The observations do not establish that DHCP caused the problem or that the computer account had lost its domain membership.
+
+An attempted `Get-ADComputer` query on the workstation also identified that the Active Directory PowerShell tools were unavailable there. The directory query was performed on `NS-DC01`; the missing client command was a tooling limitation, not evidence of an Active Directory outage.
+
+### Simulated DHCP DNS-Option Troubleshooting
+
+In **SIM-DHCP-001**, DHCP Option 006 was temporarily changed to test the effect of an incorrect DNS server on a domain client.
+
+The first test used `192.168.252.2`. Internal names and LDAP SRV queries still resolved during that test, so it did not reproduce the intended failure. This later observation is preserved separately from the earlier pre-join DNS failure.
+
+The controlled fault was then reproduced using the public resolver `1.1.1.1`. The workstation retained its reserved address and could reach `NS-DC01` by IP. External DNS worked, but internal Northstar names and LDAP SRV queries failed. Explicit queries to `192.168.252.10` succeeded, isolating the failure to the DNS server delivered to the client.
+
+Option 006 was restored to `192.168.252.10`, the client released and renewed its configuration, and its DNS cache was cleared. Internal name resolution, Domain Controller discovery, and secure-channel validation succeeded again.
+
+The recovery screenshot includes an LDAP service-name query without `-Type SRV` that returned an SOA authority record. That output is not evidence of an SRV answer; explicit SRV validation is recorded separately in the lab notes.
+
 ## Tools and Technologies Used
 
 - Windows Server 2025
@@ -291,6 +372,9 @@ These checks support the documented standard-user session and departmental membe
 - Active Directory Domain Services
 - DNS Server
 - DNS Manager
+- Group Policy Management
+- DHCP Server and DHCP Manager
+- DHCP Server PowerShell module
 - Active Directory Users and Computers
 - Active Directory Administrative Tools
 - Active Directory PowerShell module
@@ -300,6 +384,8 @@ These checks support the documented standard-user session and departmental membe
 - VMware VMnet8 / NAT
 - Windows DNS client configuration
 - `nltest`
+- `gpupdate` and `gpresult`
+- Windows Time / `w32tm`
 
 ## Commands Used
 
@@ -363,6 +449,71 @@ net localgroup Administrators
 nltest /dsgetdc:ad.northstarsolutions.com
 ```
 
+### Group Policy Validation on NS-W11-01
+
+Computer-scope checks were performed in an elevated session:
+
+```powershell
+gpresult /h C:\gpo-report.html /scope computer
+gpresult /r /scope computer
+Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name InactivityTimeoutSecs
+```
+
+User-scope results were checked in the Finance user's session. Policy refresh was also used during the simulated link recovery:
+
+```cmd
+whoami
+gpupdate /force
+gpresult /r /scope user
+```
+
+### DHCP Administration on NS-DC01
+
+```powershell
+Get-DhcpServerInDC
+Get-DhcpServerv4Scope
+Get-DhcpServerv4Lease -ScopeId 192.168.252.0
+Get-DhcpServerv4Reservation -ScopeId 192.168.252.0
+Get-DhcpServerv4OptionValue -ScopeId 192.168.252.0
+```
+
+### DHCP and DNS Validation on NS-W11-01
+
+Lease release and renewal were performed during the controlled cutover, reservation validation, and simulated DNS-option recovery. DNS cache clearing was used during troubleshooting:
+
+```cmd
+ipconfig /release
+ipconfig /renew
+ipconfig /flushdns
+ipconfig /all
+```
+
+DNS and domain checks included:
+
+```powershell
+Resolve-DnsName NS-DC01.ad.northstarsolutions.com
+Resolve-DnsName _ldap._tcp.dc._msdcs.ad.northstarsolutions.com -Type SRV
+Resolve-DnsName NS-DC01.ad.northstarsolutions.com -Server 192.168.252.10 -DnsOnly
+Resolve-DnsName microsoft.com
+nltest /dsgetdc:ad.northstarsolutions.com
+Test-ComputerSecureChannel -Verbose
+```
+
+### Time and Secure-Channel Investigation on NS-W11-01
+
+These checks were used during the unexpected time issue; resynchronization was performed after correcting the clock:
+
+```powershell
+Get-Date
+Get-TimeZone
+w32tm /query /status
+w32tm /query /source
+nltest /sc_verify:ad.northstarsolutions.com
+nltest /sc_query:ad.northstarsolutions.com
+w32tm /resync
+Test-ComputerSecureChannel -Verbose
+```
+
 ## Documentation
 
 Supporting technical documentation for this server includes:
@@ -373,11 +524,21 @@ Supporting technical documentation for this server includes:
 - [Interview preparation based on completed lab work](../interview-prep/windows-server-interview.md)
 - [Windows 11 workstation baseline](../01-windows-workstation/system-baseline.md)
 
-This overview incorporates the Phase 4–5 progress recorded through September 16, 2026. The lab notes include actions without separate screenshots, such as temporary record cleanup and manager configuration. Supporting Markdown files are being updated to this checkpoint separately.
+This overview incorporates the completed Phase 6–7 work and preserves the earlier deployment history. The lab notes include actions without separate screenshots, such as temporary record cleanup and manager configuration. Supporting Markdown files are being updated to this checkpoint separately.
 
-Unexpected project incidents and intentionally created real-world support scenarios will be documented separately and labeled accurately as genuine incidents, simulated support incidents, or troubleshooting exercises.
+Unexpected project incidents and intentionally created real-world support scenarios are documented separately and labeled accurately as genuine incidents, simulated support incidents, or troubleshooting exercises.
 
-No intentionally induced Phase 4–5 fault scenario is reported complete. The membership correction and pre-join DNS observation are documented as validation findings; the identity lifecycle is a controlled administration exercise.
+The Phase 4–5 membership correction and pre-join DNS observation remain validation findings; the identity lifecycle is a controlled administration exercise. Phase 6–7 introduced the completed simulated support incidents `SIM-GPO-001` and `SIM-DHCP-001`. The unexpected time issue is documented separately from those simulations.
+
+### Troubleshooting Reports
+
+| Report | Classification | Recorded Outcome |
+|---|---|---|
+| [SIM-GPO-001 — Missing Finance User OU Link](troubleshooting/SIM-GPO-001-missing-finance-ou-link.md) | Controlled simulated support incident | Restored the OU link and verified Finance user-policy application |
+| [SIM-DHCP-001 — Incorrect DHCP DNS Option](troubleshooting/SIM-DHCP-001-incorrect-dns-option.md) | Controlled simulated support incident | Restored internal DNS through Option 006 and verified client recovery |
+| [INC-004 — Workstation Time and Secure-Channel Validation Issue](troubleshooting/INC-004-workstation-time-secure-channel.md) | Genuine unexpected lab incident | Secure-channel checks succeeded after clock correction and resynchronization; the initiating cause remained unconfirmed |
+
+Each report records the investigation, remediation, verification, and evidence limits. The reports distinguish screenshot results from actions recorded only in the lab notes.
 
 ## Production Considerations
 
@@ -396,7 +557,7 @@ A production Active Directory implementation would additionally consider:
 - Disaster recovery planning
 - Formal change management
 
-The single-Domain-Controller design used in this homelab is appropriate for learning and functional validation but does not provide production-level redundancy.
+The single-Domain-Controller design used in this homelab is appropriate for learning and functional validation but does not provide production-level redundancy. AD DS, DNS, and DHCP currently share `NS-DC01` because of host resource constraints; no DHCP failover partner is deployed.
 
 ## Module Status
 
@@ -439,8 +600,19 @@ Completed areas:
 - Domain Controller discovery and secure-channel validation
 - Active Directory computer-object placement
 - Standard domain-user authentication and group-token validation
+- Computer and user Group Policy application and verification
+- Workstation inactivity setting validation at 900 seconds
+- Simulated missing GPO link diagnosis and recovery
+- DHCP address planning, scope creation, exclusions, and options
+- DHCP Server installation and Active Directory authorization
+- VMware-to-Windows DHCP cutover with NAT retained
+- Client lease and DHCP-delivered DNS validation
+- Finance workstation DHCP reservation
+- DHCP Manager and PowerShell administration
+- Unexpected time issue investigation and secure-channel recovery validation
+- Simulated incorrect DHCP DNS option diagnosis and recovery
 - Infrastructure documentation
 
-**Current technical checkpoint: Phases 2–5 are complete. Phase 6 — Centralized Group Policy is next and has not yet started hands-on.**
+**Current technical checkpoint: Phases 2–7 are complete. Phase 8 — File Services and Permissions is next.**
 
-Later stages will include DHCP, file services and permissions, PowerShell automation, server operations, security, monitoring, and integrated troubleshooting scenarios.
+Later stages will include file services and permissions, PowerShell automation, server operations, security, monitoring, and additional integrated troubleshooting scenarios. Resource-specific Domain Local groups and permissions remain future work for the AGDLP implementation.

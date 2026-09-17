@@ -2,7 +2,7 @@
 
 ## Business Scenario
 
-Northstar Solutions prepared a Windows 11 Pro workstation for a Finance department employee and later integrated it into the organization's Active Directory domain.
+Northstar Solutions prepared a Windows 11 Pro workstation for a Finance department employee, integrated it into the organization's Active Directory domain, and introduced centralized Group Policy and Windows DHCP configuration.
 
 As the assigned junior IT support technician, I am responsible for preparing the workstation, managing local and domain-user access, validating system health and connectivity, reviewing endpoint security controls, troubleshooting common issues, and documenting the completed work.
 
@@ -15,7 +15,10 @@ As the assigned junior IT support technician, I am responsible for preparing the
 - Role: End-user workstation
 - Domain: `ad.northstarsolutions.com`
 - Computer OU: `Northstar > Workstations > Finance`
-- Addressing: VMware DHCP; IPv4 DNS server `192.168.252.10`
+- Addressing: Windows DHCP reservation `192.168.252.120`
+- DHCP Server: `NS-DC01` — `192.168.252.10`
+- IPv4 DNS Server: `192.168.252.10`, supplied through DHCP Option 006
+- Default Gateway: `192.168.252.2` — VMware NAT
 
 ## Lab Objectives
 
@@ -35,6 +38,10 @@ As the assigned junior IT support technician, I am responsible for preparing the
 - Integrate the workstation with Northstar Active Directory
 - Validate domain membership, Domain Controller discovery, and workstation trust
 - Verify a Finance domain-user session and departmental group membership
+- Validate centralized computer and Finance user Group Policy
+- Migrate client addressing and DNS configuration to Windows DHCP
+- Verify a DHCP reservation and domain connectivity after configuration changes
+- Investigate policy, DNS-option, and time-synchronization issues
 
 ## Completed Work
 
@@ -131,7 +138,37 @@ During Phase 5, `NS-W11-01` was integrated into the domain hosted by `NS-DC01`.
 
 The domain Finance identity is separate from the original local `finance.user` account. The DNS prerequisite observation is not presented as a deliberately induced failure.
 
-The [workstation baseline](system-baseline.md) preserves the standalone configuration and adds the later integration checkpoint. The retained [domain membership](../02-windows-server/screenshots/12-ns-w11-01-domain-membership-verification.png), [computer-object placement](../02-windows-server/screenshots/13-ns-w11-01-ad-computer-object-verification.png), and [Finance session](../02-windows-server/screenshots/14-domain-user-login-and-group-membership.png) screenshots are maintained with the server module.
+The [workstation baseline](system-baseline.md) preserves the standalone configuration and the later integration history. The retained [domain membership](../02-windows-server/screenshots/12-ns-w11-01-domain-membership-verification.png), [computer-object placement](../02-windows-server/screenshots/13-ns-w11-01-ad-computer-object-verification.png), and [Finance session](../02-windows-server/screenshots/14-domain-user-login-and-group-membership.png) screenshots are maintained with the server module.
+
+### Centralized Group Policy Validation
+
+Phase 6 added domain policy validation, separate from the earlier Local Group Policy exercise.
+
+| Policy | Client Validation |
+|---|---|
+| `Northstar - Workstation Baseline` | Applied in computer-scope results; `InactivityTimeoutSecs = 900` |
+| `Northstar - Finance User Policy` | Applied in user-scope results for `NORTHSTAR\ava.chen` |
+
+Computer checks were performed in an elevated session; user checks were performed in Ava's session. The [workstation policy evidence](../02-windows-server/screenshots/15-workstation-baseline-gpo-verification.png) shows the applied GPO and inactivity value. The [Finance policy evidence](../02-windows-server/screenshots/16-finance-user-gpo-verification.png) shows user-policy application without identifying the exact restriction setting.
+
+### Windows DHCP Client Migration and Reservation
+
+During Phase 7, Windows DHCP on `NS-DC01` replaced VMware DHCP for the lab network. VMware NAT remained enabled. The workstation retained automatic IPv4 addressing and was changed to obtain DNS automatically so the DHCP-provided DNS setting could be tested.
+
+| Setting | Before Migration | Initial Windows DHCP Lease | Final Reservation |
+|---|---|---|---|
+| IPv4 Address | `192.168.252.128` | `192.168.252.50` | `192.168.252.120` |
+| Subnet Mask | `255.255.255.0` | `255.255.255.0` | `255.255.255.0` |
+| Default Gateway | `192.168.252.2` | `192.168.252.2` | `192.168.252.2` |
+| DHCP Server | `192.168.252.254` | `192.168.252.10` | `192.168.252.10` |
+| IPv4 DNS Server | `.10`, manually configured | `.10`, supplied by DHCP | `.10`, supplied by DHCP |
+| DHCP Enabled | Yes | Yes | Yes |
+
+The reservation associates `192.168.252.120` with MAC address `00-0C-29-5F-31-87`. The workstation continues to use DHCP; the reservation is not a manually configured static address.
+
+Client validation confirmed the Northstar DNS suffix, internal and external name resolution, and Domain Controller discovery. The unexpected secure-channel discrepancy and recovery are documented below.
+
+The [initial Windows DHCP configuration](../02-windows-server/screenshots/19-windows-dhcp-client-configuration-verification.png) shows `.50`; the [final client configuration](../02-windows-server/screenshots/24-simulated-dhcp-dns-option-recovery.png) shows the later `.120` reservation and restored internal DNS. The scope, exclusions, options, and authorization are documented in the [server baseline](../02-windows-server/server-baseline.md).
 
 ## Troubleshooting Cases
 
@@ -152,6 +189,38 @@ See [INC-002](troubleshooting/INC-002-missing-vmware-device-driver.md), an unexp
 Investigated workstation performance degradation using Task Manager, isolated significant CPU utilization to active Microsoft Edge workloads, tested corrective actions, and verified a substantial reduction in CPU utilization after remediation.
 
 See [INC-003](troubleshooting/INC-003-high-cpu-edge-workload.md). The case uses a simulated Finance user report with observed performance measurements; it is not presented as an unexpected production incident.
+
+### SIM-GPO-001 — Missing Finance User OU Link
+
+In this controlled simulation, the Finance policy stopped applying because its user OU link was missing. The user remained in the correct OU, and the GPO and configured setting still existed, but the policy was absent from `gpresult`.
+
+After the link was restored and policy refreshed, user-scope results again listed `Northstar - Finance User Policy`. The notes also record restoration of the functional restriction. The [GPO troubleshooting evidence](../02-windows-server/screenshots/17-simulated-gpo-link-troubleshooting.png) shows policy absence and recovery, not the link edit itself.
+
+See the [SIM-GPO-001 report](../02-windows-server/troubleshooting/SIM-GPO-001-missing-finance-ou-link.md) for the investigation, remediation, and verification record.
+
+### INC-004 — Unexpected Time and Secure-Channel Issue
+
+During Phase 7 validation, `Test-ComputerSecureChannel -Verbose` returned `False`, while domain membership remained intact and DNS and DC discovery worked. The `nltest /sc_verify` and `/sc_query` checks reported `NERR_Success`.
+
+Investigation identified incorrect workstation time as a contributing condition. After clock correction and resynchronization with `NS-DC01`, secure-channel validation returned `True` and time-offset checks showed close synchronization.
+
+The [initial investigation](../02-windows-server/screenshots/20-secure-channel-time-skew-detection.png) and [recovery evidence](../02-windows-server/screenshots/21-time-sync-secure-channel-recovery.png) document an unexpected lab incident. The results do not prove that DHCP caused it or establish time as the sole cause.
+
+An attempted `Get-ADComputer` query also found that the Active Directory PowerShell tools were unavailable on the workstation. The query was run on `NS-DC01`; the missing client command was a tooling limitation, not evidence of a directory outage.
+
+See the [INC-004 report](../02-windows-server/troubleshooting/INC-004-workstation-time-secure-channel.md) for the conflicting initial results, recovery validation, and limits of the diagnosis.
+
+### SIM-DHCP-001 — Incorrect DHCP DNS Option
+
+In this controlled simulation, DHCP Option 006 temporarily supplied `1.1.1.1`. The workstation retained its `.120` reservation and could reach the DC by IP. External DNS worked, but internal names failed. A direct query to `192.168.252.10` succeeded, isolating the problem to the client's DNS configuration.
+
+The earlier test using VMware's `.2` resolver still resolved internal names according to the notes and did not reproduce the intended failure. That result is kept separate from the historical pre-join DNS failure.
+
+Option 006 was restored to `.10`, the client released and renewed its lease, and the DNS cache was cleared. The [failure evidence](../02-windows-server/screenshots/23-simulated-dhcp-dns-option-failure.png) and [recovery evidence](../02-windows-server/screenshots/24-simulated-dhcp-dns-option-recovery.png) show the configuration change and restored DC name resolution, discovery, and secure-channel validation.
+
+The recovery screenshot's LDAP service-name query omits `-Type SRV` and returns an SOA authority record. Explicit SRV validation is recorded in the notes; that SOA output is not presented as an SRV answer.
+
+See the [SIM-DHCP-001 report](../02-windows-server/troubleshooting/SIM-DHCP-001-incorrect-dns-option.md) for the initial test, reproduced fault, DNS isolation, and verified recovery.
 
 ## Tools and Technologies Used
 
@@ -179,6 +248,9 @@ See [INC-003](troubleshooting/INC-003-high-cpu-edge-workload.md). The case uses 
 - `nltest`
 - `Resolve-DnsName`
 - `Test-ComputerSecureChannel`
+- Domain Group Policy / `gpupdate` / `gpresult`
+- Windows DHCP client configuration
+- Windows Time / `w32tm`
 
 ## Commands Used
 
@@ -240,6 +312,60 @@ $env:USERDNSDOMAIN
 net localgroup Administrators
 ```
 
+### Centralized Group Policy Validation
+
+Computer-scope checks were run in an elevated workstation session:
+
+```powershell
+gpresult /r /scope computer
+gpresult /h C:\gpo-report.html /scope computer
+Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name InactivityTimeoutSecs
+```
+
+The Finance user's policy was checked in that user's session. Refresh was used after correcting the simulated missing link:
+
+```cmd
+whoami
+gpupdate /force
+gpresult /r /scope user
+```
+
+### DHCP and DNS Validation
+
+Lease release and renewal were used during the controlled migration, reservation validation, and DNS-option recovery. These commands change client connectivity; they are recorded actions rather than a required sequence for every network inspection.
+
+```cmd
+ipconfig /release
+ipconfig /renew
+ipconfig /flushdns
+ipconfig /all
+```
+
+DNS validation included:
+
+```powershell
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com
+Resolve-DnsName ns-dc01.ad.northstarsolutions.com -Server 192.168.252.10 -DnsOnly
+Resolve-DnsName _ldap._tcp.dc._msdcs.ad.northstarsolutions.com -Type SRV
+Resolve-DnsName microsoft.com
+```
+
+### Time and Secure-Channel Investigation
+
+The workstation clock, time source, and domain relationship were inspected. Resynchronization was performed after correcting the clock:
+
+```powershell
+Get-Date
+Get-TimeZone
+w32tm /query /source
+w32tm /query /status
+nltest /sc_verify:ad.northstarsolutions.com
+nltest /sc_query:ad.northstarsolutions.com
+w32tm /resync
+w32tm /stripchart /computer:ns-dc01.ad.northstarsolutions.com /samples:5 /dataonly
+Test-ComputerSecureChannel -Verbose
+```
+
 ## Documentation
 
 Supporting technical documentation for this workstation includes:
@@ -252,11 +378,13 @@ Supporting technical documentation for this workstation includes:
 - [Server module and domain integration](../02-windows-server/README.md)
 - [Server screenshot guide](../02-windows-server/screenshots/README.md)
 
-Historical endpoint assessments remain associated with the standalone baseline. The later domain-integration checks do not constitute a fresh hardware, storage, or endpoint-security assessment.
+Historical endpoint assessments remain associated with the standalone baseline. The later domain, GPO, and DHCP checks do not constitute a fresh hardware, storage, or comprehensive endpoint-security assessment.
+
+Phase 6–7 evidence is maintained with the server module. Supporting workstation documents are being updated to the same checkpoint one file at a time. The two simulated support incidents remain distinct from the unexpected time issue and the earlier validation findings.
 
 ## Module Status
 
-**Windows 11 Workstation Administration — Standalone Baseline and Domain Integration Complete**
+**Windows 11 Workstation Administration — Complete through Phase 7 Client Validation**
 
 Completed areas:
 
@@ -281,7 +409,14 @@ Completed areas:
 - Workstation-domain secure-channel validation
 - Enabled computer object in the Finance Workstations OU
 - Finance domain-user authentication and departmental group-token validation
+- Computer and Finance user Group Policy validation
+- 900-second workstation inactivity setting verification
+- Simulated missing GPO link recovery
+- Windows DHCP migration and automatic DNS configuration
+- DHCP reservation validation at `192.168.252.120`
+- Unexpected time issue investigation and secure-channel recovery
+- Simulated incorrect DHCP DNS-option diagnosis and recovery
 
-The workstation is now domain joined. Phase 6 — Centralized Group Policy is next and has not yet started hands-on. The earlier Local Group Policy exercise remains distinct from that future centralized policy work.
+The workstation is domain joined, has validated computer and Finance user policies, and receives its reserved address and internal DNS settings through Windows DHCP. The original Local Group Policy exercise remains a separate historical activity.
 
-This overview reflects the recorded checkpoint through September 16, 2026. The workstation will continue to support later networking, security hardening, and enterprise administration modules.
+Phases 6–7 are complete. Phase 8 — File Services and Permissions is next; shared-resource permissions and the remaining AGDLP relationships have not yet been implemented. The workstation will continue to support later networking, security hardening, and enterprise administration modules.
