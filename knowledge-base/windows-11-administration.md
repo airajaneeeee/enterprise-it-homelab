@@ -1,5 +1,7 @@
 # Windows 11 Administration — Knowledge Base
 
+This document covers concepts from the standalone workstation module and the later Phase 5 domain integration. Historical examples remain associated with the stage in which they were observed. See the [workstation baseline](../01-windows-workstation/system-baseline.md) for configuration history and validation evidence.
+
 ## Computer Name / Hostname
 
 A hostname is the name used to identify a computer.
@@ -104,7 +106,7 @@ Do **not** manually rename the folder.
 
 Windows stores references to user profiles in multiple places. Manually changing the profile directory can lead to profile loading problems and broken paths.
 
-Instead, a safer approach is to create and verify a correctly configured replacement account. We will create a new lab administrator account with the intended username and let Windows create its user profile folder.
+Instead, a safer approach is to create and verify a correctly configured replacement account and let Windows create its user profile folder. Northstar's dedicated local administrator account, `labadmin`, was created during the standalone workstation module.
 
 ---
 
@@ -118,7 +120,7 @@ Example:
 NS-W11-01\finance.user
 ```
 
-This account exists on `NS-W11-01` and is not currently managed through Active Directory.
+This is the local Finance account created during the standalone baseline. The later domain join did not convert it into an Active Directory identity. The domain account `NORTHSTAR\ava.chen` is a separate identity used for Phase 5 login validation.
 
 ---
 
@@ -144,12 +146,14 @@ A standard user can perform normal day-to-day tasks but has limited ability to m
 
 The principle of least privilege means that users and systems should receive only the permissions required for their responsibilities.
 
-In this lab:
+During the standalone workstation module:
 
-- `labadmin` is used for IT administrative operations.
-- `finance.user` is used for standard Finance employee activity.
+- `labadmin` was used for IT administrative operations.
+- `finance.user` was used for standard Finance employee activity.
 
 This reduces unnecessary administrative access.
+
+The later domain-user session used `NORTHSTAR\ava.chen`. Her identity, group token, and the workstation's local Administrators membership were inspected separately from the administrative domain-join validation session.
 
 ---
 
@@ -780,6 +784,8 @@ I also practiced using:
 
 This provided hands-on experience configuring and investigating local Windows policy.
 
+This was Local Group Policy work. The later domain join and Finance OU placement prepare for centralized Group Policy, which has not yet started hands-on at the Phase 5 checkpoint.
+
 ## Windows Network Troubleshooting Basics
 
 ### DNS Name Resolution and DNS Cache
@@ -853,6 +859,84 @@ Therefore:
 `nslookup` can be used to investigate DNS name resolution.
 
 Understanding which network function is failing is more important than simply running a collection of troubleshooting commands.
+
+## Domain-Joined Workstation Administration
+
+### Local and Domain Identities
+
+A workstation can contain local accounts while also supporting domain-user sign-ins. Check the account context rather than assuming that a familiar display name identifies the account source.
+
+| Identity | Context |
+|---|---|
+| `NS-W11-01\labadmin` | Local administrator from the standalone baseline |
+| `NS-W11-01\finance.user` | Local standard Finance account from the standalone baseline |
+| `NORTHSTAR\ava.chen` | Active Directory Finance identity used after domain integration |
+
+The domain identity is not a renamed or converted version of the local Finance account. `whoami` identifies the active security context.
+
+### DNS Configuration and Domain Readiness
+
+Before joining the domain, Northstar's workstation could reach the DC by IP address but could not resolve the domain or LDAP SRV records through VMware DNS, according to the lab notes.
+
+The workstation retained VMware DHCP addressing while its IPv4 DNS server changed:
+
+```text
+Before: 192.168.252.2  — VMware DNS
+After:  192.168.252.10 — NS-DC01 internal DNS
+```
+
+The DC's loopback address `127.0.0.1` belongs to the DC's own DNS-client configuration. It is not the DNS address used by the workstation to contact the DC.
+
+The lesson is to distinguish basic IP connectivity from DNS resolution and AD service discovery. The pre-join observation was a prerequisite configuration finding, not an intentionally induced support incident.
+
+### Validate Membership, Discovery, and Trust Separately
+
+Northstar used the following checks in an administrative PowerShell session on `NS-W11-01`:
+
+```powershell
+Get-ComputerInfo | Select-Object CsName,CsDomain,CsPartOfDomain
+nltest /dsgetdc:ad.northstarsolutions.com
+Test-ComputerSecureChannel -Verbose
+```
+
+The retained results show:
+
+- Domain membership in `ad.northstarsolutions.com` with `CsPartOfDomain = True`.
+- Discovery of `NS-DC01.ad.northstarsolutions.com` at `192.168.252.10`.
+- A secure-channel result of `True`, reported in good condition.
+
+These checks answer different questions. Membership output alone does not establish current DC connectivity or a healthy secure channel. See the [administrative validation evidence](../02-windows-server/screenshots/12-ns-w11-01-domain-membership-verification.png).
+
+### Validate the User Session
+
+The Finance domain-user session was checked separately:
+
+```powershell
+whoami
+whoami /user
+whoami /groups
+$env:USERDOMAIN
+$env:USERDNSDOMAIN
+net localgroup Administrators
+```
+
+The results showed `NORTHSTAR\ava.chen`, `GG-Finance-Users` in the token, and the Northstar domain environment variables. The displayed token had no `BUILTIN\Administrators` entry, and Ava was not individually listed in local Administrators.
+
+Together these observations support the recorded standard-user session. They are not a complete resource-permissions audit. The user-domain environment variables are also not a separate verification of the adapter's DNS suffix settings.
+
+The secure-channel command visible at the bottom of the [Finance session screenshot](../02-windows-server/screenshots/14-domain-user-login-and-group-membership.png) has no displayed result. Use the separate administrative evidence for the successful trust check.
+
+### Computer Placement and Future Policy
+
+The enabled workstation computer object was placed in `Northstar > Workstations > Finance`. This prepares the computer for appropriate policy scope; it does not demonstrate that a new domain GPO has been deployed or applied.
+
+Server-side directory concepts, group management, and further command explanations are maintained in the [Windows Server knowledge base](windows-server-administration.md). This workstation section focuses on the client-side checks.
+
+### Keep Configuration History Clear
+
+The original workstation baseline records 8 GB RAM and VMware DNS. The domain-integration checkpoint records the later DNS change without rewriting those earlier observations. A different RAM allocation mentioned in later planning notes remains unconfirmed.
+
+A successful domain join does not revalidate storage, Defender, firewall, BitLocker, or system integrity. Those assessments retain their original scope until separately checked again.
 
 ## Disk Management and Windows File Systems
 

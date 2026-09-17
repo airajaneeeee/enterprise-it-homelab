@@ -2,6 +2,8 @@
 
 This document contains interview questions and sample answers based on the hands-on Windows 11 administration and troubleshooting work completed in the Northstar Solutions enterprise IT homelab.
 
+The examples cover the original standalone workstation module and the later Phase 5 domain integration. Hypothetical troubleshooting answers describe an approach, not additional incidents claimed as completed. See the [workstation baseline](../01-windows-workstation/system-baseline.md) for configuration history and evidence.
+
 ---
 
 ## 1. Windows Workstation, Local Accounts, and Access Control
@@ -81,7 +83,7 @@ Is a local account stored on `NS-W11-01`.
 
 A domain account is centrally created and managed through a directory service such as Active Directory and can be used across authorized domain-joined systems.
 
-My current Windows workstation lab uses local accounts. I will implement domain accounts later when I build the Active Directory environment.
+My original workstation module used local accounts. I later joined `NS-W11-01` to `ad.northstarsolutions.com` and validated a separate domain-user session as `NORTHSTAR\ava.chen`. The domain join did not convert the original local accounts into domain identities.
 
 ### 6. What is the difference between an administrator and a standard user?
 
@@ -420,15 +422,15 @@ The experience reinforced the importance of measuring performance, testing a hyp
 
 ---
 
-# 4. Windows Services
+## 4. Windows Services
 
-## 1. What is a Windows service?
+### 1. What is a Windows service?
 
 A Windows service is a background component that provides operating system or application functionality without requiring direct user interaction.
 
 Services can be managed through tools such as `services.msc`, PowerShell, and command-line utilities.
 
-## 2. What is the difference between service status and startup type?
+### 2. What is the difference between service status and startup type?
 
 Service status describes the service's current state, such as Running or Stopped.
 
@@ -436,7 +438,7 @@ Startup type controls how the service is configured to start, such as Automatic,
 
 For example, during my lab the Print Spooler was configured as Automatic, but I was able to stop it temporarily. Its startup configuration remained Automatic while its current status became Stopped.
 
-## 3. How would you troubleshoot a Windows service?
+### 3. How would you troubleshoot a Windows service?
 
 I would first confirm the user's symptoms and determine whether the service is related to the problem.
 
@@ -446,21 +448,21 @@ In my Windows 11 homelab, I practiced this with the Print Spooler and verified i
 
 ---
 
-# 5. Local Group Policy
+## 5. Local Group Policy
 
-## 1. What is Group Policy?
+### 1. What is Group Policy?
 
 Group Policy is a Windows administration technology used to configure and enforce settings for computers and users.
 
-I practiced with Local Group Policy on a Windows 11 workstation. Later, in an Active Directory environment, Group Policy can be centrally managed and applied across domain users and computers.
+I practiced with Local Group Policy on the standalone Windows 11 workstation. The workstation is now domain joined and placed in the Finance Workstations OU, but new centralized Group Policy work has not yet started hands-on. That is the next phase.
 
-## 2. What is the difference between Computer Configuration and User Configuration?
+### 2. What is the difference between Computer Configuration and User Configuration?
 
 Computer Configuration contains policies primarily applied to computers, while User Configuration contains policies primarily applied to users.
 
 The appropriate area depends on whether the setting should follow the computer or the user.
 
-## 3. What Group Policy tools have you used?
+### 3. What Group Policy tools have you used?
 
 I have used `gpedit.msc` to configure Local Group Policy, `gpupdate /force` to request policy processing, `gpresult /r` to inspect Group Policy results, and `rsop.msc` to examine Resultant Set of Policy information.
 
@@ -468,15 +470,15 @@ In my homelab, I configured a security policy preventing Remote Desktop password
 
 ---
 
-# 6. Basic Windows Network Troubleshooting
+## 6. Basic Windows Network Troubleshooting
 
-## 1. What does DNS do?
+### 1. What does DNS do?
 
 DNS translates hostnames and domain names into IP addresses that computers use for network communication.
 
 For example, instead of users needing to remember an IP address, DNS allows them to access a service using a name such as `microsoft.com`.
 
-## 2. How would you test whether DNS name resolution is working?
+### 2. How would you test whether DNS name resolution is working?
 
 I can use `nslookup` to query DNS for a hostname and determine whether it resolves to an IP address.
 
@@ -486,7 +488,7 @@ For example:
 
 If DNS successfully returns an IP address, I have evidence that name resolution is functioning for that query.
 
-## 3. What does `ipconfig /flushdns` do?
+### 3. What does `ipconfig /flushdns` do?
 
 `ipconfig /flushdns` clears the Windows DNS resolver cache.
 
@@ -494,7 +496,7 @@ It can be useful when troubleshooting stale or incorrect cached DNS information,
 
 I would not use it as a generic fix for every network problem.
 
-## 4. What is the difference between DHCP and DNS?
+### 4. What is the difference between DHCP and DNS?
 
 DHCP provides network configuration to clients, such as IP addressing information.
 
@@ -502,7 +504,7 @@ DNS translates names into IP addresses.
 
 They solve different problems, so I would identify whether an issue involves IP configuration, name resolution, or another network component before choosing a troubleshooting action.
 
-## 5. What do `ipconfig /release` and `ipconfig /renew` do?
+### 5. What do `ipconfig /release` and `ipconfig /renew` do?
 
 `ipconfig /release` releases the client's current DHCP-assigned IPv4 configuration.
 
@@ -510,7 +512,7 @@ They solve different problems, so I would identify whether an issue involves IP 
 
 These commands can be useful when troubleshooting DHCP-related configuration problems.
 
-## 6. What information would you check with `ipconfig /all`?
+### 6. What information would you check with `ipconfig /all`?
 
 I would look at information such as:
 
@@ -524,7 +526,7 @@ I would look at information such as:
 
 This helps establish the workstation's current network configuration before making changes.
 
-## 7. A user says "the internet isn't working." Would you immediately flush DNS or renew the IP address?
+### 7. A user says "the internet isn't working." Would you immediately flush DNS or renew the IP address?
 
 No.
 
@@ -534,13 +536,13 @@ For example, if the workstation has valid IP configuration but hostnames fail to
 
 ---
 
-# 7. Disk Management and File Systems
+## 7. Disk Management and File Systems
 
-## 1. What is Disk Management used for?
+### 1. What is Disk Management used for?
 
 Disk Management is a Windows administrative utility used to manage disks and volumes. I can use it to initialize disks, create and format volumes, assign drive letters, inspect storage status, and perform operations such as extending or shrinking supported volumes.
 
-## 2. What would you do after installing a new disk that Windows detects but cannot yet use for file storage?
+### 2. What would you do after installing a new disk that Windows detects but cannot yet use for file storage?
 
 I would first verify that Windows detects the correct disk and confirm that it does not contain required data.
 
@@ -548,13 +550,13 @@ For a new blank disk, I can initialize it using an appropriate partition style s
 
 I practiced this in my Windows homelab by provisioning a secondary virtual disk and configuring it as the `Finance-Data` NTFS volume.
 
-## 3. What is the difference between GPT and MBR?
+### 3. What is the difference between GPT and MBR?
 
 GPT is the modern partitioning standard and supports larger disks and more partitions. MBR is an older standard that may still be encountered with legacy systems.
 
 For modern Windows deployments, I would generally expect GPT unless there is a specific compatibility requirement.
 
-## 4. What is the difference between NTFS and exFAT?
+### 4. What is the difference between NTFS and exFAT?
 
 NTFS is generally preferred for internal Windows storage because it supports Windows permissions, journaling, and other Windows filesystem features.
 
@@ -562,11 +564,11 @@ exFAT is commonly useful for removable storage when compatibility between differ
 
 The correct choice depends on the storage use case.
 
-## 5. Why did you use NTFS for your Finance data volume?
+### 5. Why did you use NTFS for your Finance data volume?
 
 The volume represented internal storage on a Windows enterprise workstation. NTFS was appropriate because it integrates with Windows security and supports file and folder permissions that would be important for business data.
 
-## 6. How would you safely approach an unfamiliar disk in Disk Management?
+### 6. How would you safely approach an unfamiliar disk in Disk Management?
 
 I would verify the disk identity, size, existing partitions, and whether it contains important data before making changes.
 
@@ -574,19 +576,19 @@ I would not initialize, format, delete, or repartition an unfamiliar disk until 
 
 ---
 
-# 8. Windows Endpoint Security
+## 8. Windows Endpoint Security
 
-## 1. How would you verify that Microsoft Defender is operating?
+### 1. How would you verify that Microsoft Defender is operating?
 
 I can review Windows Security and use `Get-MpComputerStatus` in PowerShell to verify antivirus, real-time protection, behavior monitoring, security intelligence, and scan information.
 
-## 2. What is the difference between Domain, Private, and Public firewall profiles?
+### 2. What is the difference between Domain, Private, and Public firewall profiles?
 
 The Domain profile applies when a device is connected to and authenticated against its organization's domain.
 
 Private is intended for trusted networks, while Public is intended for untrusted networks and normally uses more restrictive behavior.
 
-## 3. What is the difference between inbound and outbound firewall rules?
+### 3. What is the difference between inbound and outbound firewall rules?
 
 Inbound rules control network traffic attempting to reach the computer.
 
@@ -594,21 +596,21 @@ Outbound rules control traffic originating from the computer.
 
 Rules can be configured based on factors such as applications, protocols, ports, addresses, and network profiles.
 
-## 4. Would you disable Windows Firewall to troubleshoot connectivity?
+### 4. Would you disable Windows Firewall to troubleshoot connectivity?
 
 I would avoid disabling the entire firewall as an initial troubleshooting step.
 
 I would first determine which application, protocol, port, network profile, or firewall rule might be involved and make the smallest controlled change necessary.
 
-## 5. What is BitLocker?
+### 5. What is BitLocker?
 
 BitLocker is Microsoft's full-volume encryption technology. It protects data at rest and helps prevent unauthorized offline access if a device or storage drive is lost or stolen.
 
-## 6. What should be considered before deploying BitLocker?
+### 6. What should be considered before deploying BitLocker?
 
 I would consider hardware or TPM support, organizational encryption requirements, recovery-key storage and recovery procedures, and how encryption will be centrally managed.
 
-## 7. How do Defender, Firewall, BitLocker, and UAC differ?
+### 7. How do Defender, Firewall, BitLocker, and UAC differ?
 
 Microsoft Defender provides malware and endpoint threat protection.
 
@@ -619,3 +621,71 @@ BitLocker protects stored data through encryption.
 UAC helps control administrative elevation and supports least-privilege operation.
 
 They provide different layers of endpoint security.
+
+---
+
+## 9. Domain-Joined Workstation Support
+
+### 1. What changed when you integrated the Finance workstation with Active Directory?
+
+I changed the workstation's IPv4 DNS server from VMware DNS at `192.168.252.2` to Northstar internal DNS at `192.168.252.10`, while retaining VMware DHCP addressing.
+
+I then joined `ad.northstarsolutions.com`, verified membership and the secure channel, and checked the enabled computer object's placement in `Northstar > Workstations > Finance`.
+
+I also validated a separate domain-user session as Ava Chen. These steps extended the original standalone workstation work; they did not require rebuilding the workstation.
+
+### 2. Why was reaching the Domain Controller by IP insufficient?
+
+The workstation could reach the DC at `192.168.252.10`, but the lab notes record failed domain and LDAP SRV lookups through VMware DNS before the change.
+
+That showed that IP connectivity and Active Directory DNS discovery needed separate validation. Configuring the client to use internal DNS addressed the prerequisite gap.
+
+This was a pre-join observation, not an intentionally induced support incident. I would not claim that a successful ping alone proves domain readiness.
+
+### 3. How did you verify that the workstation was correctly joined?
+
+In an administrative PowerShell session on `NS-W11-01`, I ran:
+
+```powershell
+Get-ComputerInfo | Select-Object CsName,CsDomain,CsPartOfDomain
+nltest /dsgetdc:ad.northstarsolutions.com
+Test-ComputerSecureChannel -Verbose
+```
+
+The results showed `CsPartOfDomain = True`, the correct domain, successful discovery of `NS-DC01`, and a secure-channel result of `True`.
+
+I also verified the computer object on the server and tested a Finance user session separately. Those checks address different parts of the integration rather than relying only on the join wizard.
+
+### 4. How did you distinguish the domain user from the original local Finance account?
+
+The original local account was `NS-W11-01\finance.user`. The later domain account was `NORTHSTAR\ava.chen`.
+
+I used `whoami` to verify the active identity and `whoami /user` to inspect its SID. The two accounts have different security identities; similar business purposes do not make them the same account.
+
+### 5. What did you check in Ava Chen's session?
+
+I inspected the identity, user SID, group token, domain environment variables, local Administrators membership, and Domain Controller discovery.
+
+The token included `NORTHSTAR\GG-Finance-Users` and did not display `BUILTIN\Administrators`. Ava was not individually listed in local Administrators. Together these supported the recorded standard-user session, without claiming a complete resource-permissions audit.
+
+The successful secure-channel test came from the separate administrative session. The command visible at the bottom of Ava's screenshot has no displayed result.
+
+### 6. Does domain joining the workstation mean you have completed centralized Group Policy?
+
+No. The domain join and Finance OU placement prepare the workstation for policy targeting.
+
+My completed policy exercise was the earlier local setting preventing Remote Desktop passwords from being saved. Creating and validating new centralized Group Policy is Phase 6 and has not yet started hands-on.
+
+### 7. What would you investigate if the domain workstation could not authenticate?
+
+I would first clarify the error, affected identity, timing, and scope. I would then check the relevant network and DNS configuration, DC discovery, account state, time synchronization where relevant, and workstation trust, using logs and the actual error to guide the investigation.
+
+I would not immediately disable the firewall, reset trust, or rejoin the domain. My lab demonstrated healthy integration and a DNS prerequisite observation; a deliberately induced domain-authentication failure remains future practice.
+
+### 8. Did the domain join revalidate the entire endpoint baseline?
+
+No. The Phase 5 checks covered domain integration and the user session.
+
+The earlier RAM, storage, Defender, firewall, BitLocker, and system-integrity observations retain their original scope. I would verify those settings again when needed rather than presenting the domain join as proof that every endpoint control was reassessed.
+
+For directory administration and deeper DNS questions, see the [server interview preparation](windows-server-interview.md). Client-side concepts are also covered in the [Windows 11 knowledge base](../knowledge-base/windows-11-administration.md).
